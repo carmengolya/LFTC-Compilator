@@ -43,6 +43,12 @@ enum
     LESSEQ,
     GREATER,
     GREATEREQ,
+
+    // constants
+    INT,
+    CHAR,
+    STRING,
+    DOUBLE,
 };
 
 typedef struct Token

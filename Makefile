@@ -1,9 +1,11 @@
-CC      := gcc
-CFLAGS  := -Wall -Wextra -std=c11 -O2 -Isrc
-LDFLAGS :=
+CC       := gcc
+CFLAGS   := -Wall -Wextra -std=c11 -O2 -Isrc
+LDFLAGS  :=
 
-TARGET  := compiler
-BUILD   := build
+TARGET   := compiler
+TESTFILE := src/tests/testlex.c
+OUTFILE  := src/tests/testlex.out
+BUILD    := build
 
 # toate .c din src, dar fara src/tests
 SRC := $(filter-out src/tests/%, $(wildcard src/*.c src/*/*.c))
@@ -22,7 +24,7 @@ $(BUILD)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(TESTFILE) > $(OUTFILE)
 
 clean:
 	rm -rf $(BUILD) $(TARGET)
