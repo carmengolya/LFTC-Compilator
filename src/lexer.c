@@ -11,6 +11,34 @@ Token *lastTk; // the last token in list
 
 int line = 1; // the current line in the input file
 
+typedef struct
+{
+    const char *kw;
+    int code;
+} Keyword;
+
+static const Keyword keywords[] = {
+    {"char",   TYPE_CHAR},
+    {"int",    TYPE_INT},
+    {"double", TYPE_DOUBLE},
+    {"if",     IF},
+    {"else",   ELSE},
+    {"return", RETURN},
+    {"struct", STRUCT},
+    {"void",   VOID},
+    {"while",  WHILE},
+};
+
+static int keywordCode(const char *text)
+{
+    for (size_t i = 0; i < sizeof(keywords)/sizeof(keywords[0]); i++)
+    {
+        if (strcmp(text, keywords[i].kw) == 0)
+            return keywords[i].code;
+    }
+    return 0; // not a keyword
+}
+
 static char decodeEscape(const char **ppch)
 {
     switch (**ppch)
@@ -110,6 +138,7 @@ Token *addTk(int code)
     return tk;
 }
 
+// extracts a substring from begin (inclusive) to end (exclusive) and returns it as a new dynamically allocated string
 char *extract(const char *begin, const char *end)
 {
     int len = (int)(end - begin);
@@ -119,6 +148,7 @@ char *extract(const char *begin, const char *end)
     return text;
 }
 
+// the kernel of the lexer: it receives a string with the content of the input file and returns a linked list of tokens
 Token *tokenize(const char *pch)
 {
     const char *start;
@@ -149,26 +179,6 @@ Token *tokenize(const char *pch)
             case '\n':
             {   // fallthrough to \n
                 line++;
-                pch++;
-                break;
-            }
-
-            case '\0':
-            {
-                addTk(END);
-                return tokens;
-            }
-
-            case ',':
-            {
-                addTk(COMMA);
-                pch++;
-                break;
-            }
-
-            case ';':
-            {
-                addTk(SEMICOLON);
                 pch++;
                 break;
             }
@@ -269,7 +279,7 @@ Token *tokenize(const char *pch)
                     while (*pch != '\0' && *pch != '\n' && *pch != '\r')
                         pch++;
                 }
-                else if (pch[1] == '*')
+                else if (pch[1] == '*') // comment block
                 {
                     pch += 2;
                     while (*pch)
@@ -284,7 +294,7 @@ Token *tokenize(const char *pch)
                         {
                             line++;
                         }
-                        else if (*pch == '*' && pch[1] == '/')
+                        else if (*pch == '*' && pch[1] == '/') // end of comment block
                         {
                             pch += 2;
                             break;
@@ -292,7 +302,7 @@ Token *tokenize(const char *pch)
                         pch++;
                     }
                     if (*pch == '\0')
-                        err("unterminated comment");
+                        err("unterminated comment - line %d", line);
                 }
                 else
                 {
@@ -302,38 +312,31 @@ Token *tokenize(const char *pch)
                 break;
             }
 
-            case '(':
+            // delimiters
+            case '\0':
             {
-                addTk(LPAR);
+                addTk(END);
+                return tokens;
+            }
+
+            case ',':
+            {
+                addTk(COMMA);
                 pch++;
                 break;
             }
 
-            case '&':
+            case ';':
             {
-                if (pch[1] == '&')
-                {
-                    addTk(AND);
-                    pch += 2;
-                }
-                else
-                {
-                    err("invalid char: %c (%d)", *pch, *pch);
-                }
+                addTk(SEMICOLON);
+                pch++;
                 break;
             }
-
-            case '|':
+            
+            case '(':
             {
-                if (pch[1] == '|')
-                {
-                    addTk(OR);
-                    pch += 2;
-                }
-                else
-                {
-                    err("invalid char: %c (%d)", *pch, *pch);
-                }
+                addTk(LPAR);
+                pch++;
                 break;
             }
 
@@ -372,6 +375,34 @@ Token *tokenize(const char *pch)
                 break;
             }
 
+            case '&':
+            {
+                if (pch[1] == '&')
+                {
+                    addTk(AND);
+                    pch += 2;
+                }
+                else
+                {
+                    err("invalid char: %c (%d)", *pch, *pch);
+                }
+                break;
+            }
+
+            case '|':
+            {
+                if (pch[1] == '|')
+                {
+                    addTk(OR);
+                    pch += 2;
+                }
+                else
+                {
+                    err("invalid char: %c (%d)", *pch, *pch);
+                }
+                break;
+            }
+
             default:
             {
                 if (isalpha(*pch) || *pch == '_')
@@ -379,51 +410,14 @@ Token *tokenize(const char *pch)
                     for (start = pch++; isalnum(*pch) || *pch == '_'; pch++){}
 
                     char *text = extract(start, pch);
-                    if (strcmp(text, "char") == 0)
+                    int keyword = keywordCode(text);
+                    // keywords
+                    if (keyword)
                     {
-                        addTk(TYPE_CHAR);
+                        addTk(keyword);
                         free(text);
                     }
-                    else if (strcmp(text, "int") == 0)
-                    {
-                        addTk(TYPE_INT);
-                        free(text);
-                    }
-                    else if (strcmp(text, "double") == 0)
-                    {
-                        addTk(TYPE_DOUBLE);
-                        free(text);
-                    }
-                    else if (strcmp(text, "if") == 0)
-                    {
-                        addTk(IF);
-                        free(text);
-                    }
-                    else if (strcmp(text, "else") == 0)
-                    {
-                        addTk(ELSE);
-                        free(text);
-                    }
-                    else if (strcmp(text, "return") == 0)
-                    {
-                        addTk(RETURN);
-                        free(text);
-                    }
-                    else if (strcmp(text, "struct") == 0)
-                    {
-                        addTk(STRUCT);
-                        free(text);
-                    }
-                    else if (strcmp(text, "void") == 0)
-                    {
-                        addTk(VOID);
-                        free(text);
-                    }
-                    else if (strcmp(text, "while") == 0)
-                    {
-                        addTk(WHILE);
-                        free(text);
-                    }
+                    // identifiers
                     else
                     {
                         tk = addTk(ID);
@@ -453,7 +447,7 @@ Token *tokenize(const char *pch)
                         if (*pch == '+' || *pch == '-')
                             pch++;
                         if (!isdigit((unsigned char)*pch))
-                            err("invalid exponent in number");
+                            err("invalid exponent in number - line %d", line);
                         while (isdigit((unsigned char)*pch))
                             pch++;
                     }

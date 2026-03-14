@@ -5,7 +5,7 @@
 #include "utils.h"
 
 void err(const char *fmt, ...)
-{ // NOTE: pentru erori *lexicale*
+{
     fprintf(stderr, "error: ");
     va_list va;
     va_start(va, fmt);
