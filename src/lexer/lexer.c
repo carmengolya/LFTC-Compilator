@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "lexer.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 Token *tokens; // single linked list of tokens
 Token *lastTk; // the last token in list

@@ -69,3 +69,22 @@
 14	SEMICOLON
 15	RACC
 16	END
+[DEBUG] trying to consume token code 7 at line 3
+[DEBUG] trying to consume token code 5 at line 3
+[DEBUG] trying to consume token code 0 at line 3
+[DEBUG] trying to consume token code 13 at line 3
+[DEBUG] trying to consume token code 5 at line 3
+[DEBUG] trying to consume token code 2 at line 3
+[DEBUG] trying to consume token code 1 at line 3
+[DEBUG] trying to consume token code 7 at line 3
+[DEBUG] trying to consume token code 14 at line 3
+[DEBUG] trying to consume token code 17 at line 4
+[DEBUG] trying to consume token code 5 at line 5
+[DEBUG] trying to consume token code 0 at line 5
+[DEBUG] trying to consume token code 15 at line 5
+[DEBUG] trying to consume token code 12 at line 5
+[DEBUG] trying to consume token code 5 at line 6
+[DEBUG] trying to consume token code 2 at line 6
+[DEBUG] trying to consume token code 1 at line 6
+[DEBUG] trying to consume token code 7 at line 6
+[DEBUG] trying to consume token code 17 at line 6

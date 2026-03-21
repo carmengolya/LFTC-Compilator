@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "lexer.h"
-#include "utils.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
+#include "utils/utils.h"
 
 int main(int argc, char **argv) 
 {
@@ -15,6 +16,8 @@ int main(int argc, char **argv)
     char *input = loadFile(argv[1]);
     Token *tokens = tokenize(input);
     showTokens(tokens);
+
+    parse(tokens);
 
     free(input);
     return 0;
