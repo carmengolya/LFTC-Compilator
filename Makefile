@@ -3,8 +3,8 @@ CFLAGS   := -Wall -Wextra -std=c11 -O2 -Isrc
 LDFLAGS  :=
 
 TARGET   := compiler
-TESTFILE := src/tests/testlex.c
-OUTFILE  := src/tests/testlex.out
+TESTFILE := src/tests/testparser.c
+OUTFILE  := src/tests/testparser.out
 BUILD    := build
 
 # toate .c din src, dar fara src/tests

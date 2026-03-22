@@ -40,7 +40,8 @@ Token *consumedTk;		// the last consumed token
 
 void tkerr(const char *fmt,...)
 {
-	fprintf(stderr,"error in line %d: ",iTk->line);
+	int errLine = consumedTk ? consumedTk->line : 0;
+	fprintf(stderr,"error in line %d: ", errLine);
 	va_list va;
 	va_start(va,fmt);
 	vfprintf(stderr,fmt,va);
@@ -86,6 +87,7 @@ bool typeBase()
 	return false;
 }
 
+// structDef: STRUCT ID LACC ( varDef )* RACC SEMICOLON
 bool structDef()
 {
 	Token *start = iTk;
@@ -118,10 +120,6 @@ bool structDef()
 					tkerr("expected '}' after struct body");
 				}
 			}
-			else
-			{
-				tkerr("expected '{' after struct name");
-			}
 		}
 		else
 		{
@@ -132,7 +130,7 @@ bool structDef()
 	iTk = start;
 	return false;
 }
-
+// arrayDecl: LBRACKET ( INT )? RBRACKET
 bool arrayDecl()
 {
 	Token *start = iTk;
@@ -155,8 +153,13 @@ bool arrayDecl()
 	return false;
 }
 
+// exprPrimary: ID ( LPAR ( expr ( COMMA expr )* )? RPAR )?
+//            | LPAR expr RPAR
+//            | INT | CHAR | STRING | DOUBLE
 bool exprPrimary()
 {
+	Token *start = iTk;
+	
 	if (consume(ID))
 	{
 		if (consume(LPAR))
@@ -181,10 +184,8 @@ bool exprPrimary()
 				tkerr("expected ')' after function call arguments");
 			}
 		}
-		else
-		{
-			return true; // an identifier that is not a function call is a valid primary expression
-		}
+
+		return true;
 	}
 
 	if (consume(LPAR))
@@ -211,35 +212,20 @@ bool exprPrimary()
 		return true;
 	}
 
+	iTk = start;
 	return false;
 }
 
+// exprPostfixPrim: LBRACKET expr RBRACKET exprPostfixPrim
+//               | DOT ID exprPostfixPrim
+//			     | epsilon
 bool exprPostfixPrim()
 {
 	if (consume(LBRACKET))
+	{
+		if (expr())
 		{
-			if (expr())
-			{
-				if (consume(RBRACKET))
-				{
-					if (exprPostfixPrim())
-					{
-						return true;
-					}
-				}
-				else
-				{
-					tkerr("expected ']' after array index");
-				}
-			}
-			else
-			{
-				tkerr("syntax error in array index expression");
-			}
-		}
-		else if (consume(DOT))
-		{
-			if (consume(ID))
+			if (consume(RBRACKET))
 			{
 				if (exprPostfixPrim())
 				{
@@ -248,9 +234,29 @@ bool exprPostfixPrim()
 			}
 			else
 			{
-				tkerr("expected field name after '.'");
+				tkerr("expected ']' after array index");
 			}
 		}
+		else
+		{
+			tkerr("syntax error in array index expression");
+		}
+	}
+	else if (consume(DOT))
+	{
+		if (consume(ID))
+		{
+			if (exprPostfixPrim())
+			{
+				return true;
+			}
+		}
+		else
+		{
+			tkerr("expected field name after '.'");
+		}
+	}
+	
 	return true; // epsilon
 }
 
@@ -264,16 +270,13 @@ bool exprPostfix()
 		{
 			return true;
 		}
-		else
-		{
-			tkerr("syntax error in postfix expression");
-		}
 	}
 
 	iTk = start;
 	return false;
 }
 
+// exprUnary: ( NOT | SUB ) exprUnary | exprPostfix
 bool exprUnary()
 {
 	if (consume(NOT) || consume(SUB))
@@ -288,7 +291,7 @@ bool exprUnary()
 		}
 	}
 
-	if (exprPostfix())
+	else if (exprPostfix())
 	{
 		return true;
 	}
@@ -296,6 +299,7 @@ bool exprUnary()
 	return false;
 }
 
+// exprCast: LPAR typeBase arrayDecl? RPAR exprCast | exprUnary
 bool exprCast()
 {
 	Token *start = iTk;
@@ -311,10 +315,6 @@ bool exprCast()
 				if (exprCast())
 				{
 					return true;
-				}
-				else
-				{
-					tkerr("syntax error in cast expression");
 				}
 			}
 			else
@@ -334,6 +334,7 @@ bool exprCast()
 	return false;
 }
 
+// exprMulPrim: ( MUL | DIV ) exprCast exprMulPrim | epsilon
 bool exprMulPrim()
 {
 	if (consume(MUL))
@@ -384,6 +385,7 @@ bool exprMul()
 	return false;
 }
 
+// exprAddPrim: ( ADD | SUB ) exprMul exprAddPrim | epsilon
 bool exprAddPrim()
 {
 	if (consume(ADD))
@@ -424,7 +426,7 @@ bool exprAdd()
 
 	if (exprMul())
 	{
-		if (exprAdd())
+		if (exprAddPrim())
 		{
 			return true;
 		}
@@ -434,6 +436,7 @@ bool exprAdd()
 	return false;
 }
 
+// exprRelPrim: ( LESS | LESSEQ | GREATER | GREATEREQ ) exprAdd exprRelPrim | epsilon
 bool exprRelPrim()
 {
 	if (consume(LESS))
@@ -512,6 +515,7 @@ bool exprRel()
 	return false;
 }
 
+// exprEqPrim: ( EQUAL | NOTEQ ) exprRel exprEqPrim | epsilon
 bool exprEqPrim()
 {
 	if (consume(EQUAL))
@@ -562,6 +566,7 @@ bool exprEq()
 	return false;
 }
 
+// exprAndPrim: ( AND ) exprEq exprAndPrim | epsilon
 bool exprAndPrim()
 {
 	if(consume(AND))
@@ -598,6 +603,7 @@ bool exprAnd()
 	return false;
 }
 
+// exprOrPrim: ( OR ) exprAnd exprOrPrim | epsilon
 bool exprOrPrim()
 {
 	if(consume(OR))
@@ -634,6 +640,7 @@ bool exprOr()
 	return false;
 }
 
+// exprAssign: exprUnary ASSIGN exprAssign | exprOr
 bool exprAssign()
 {
 	Token *start = iTk;
@@ -663,6 +670,7 @@ bool exprAssign()
 	return false;
 }
 
+// expr: exprAssign
 bool expr()
 {
 	if (exprAssign())
@@ -673,6 +681,7 @@ bool expr()
 	return false;
 }
 
+// stmCompound: LACC ( varDef | stm )* RACC
 bool stmCompound()
 {
 	Token *start = iTk;
@@ -695,15 +704,16 @@ bool stmCompound()
 			tkerr("expected '}' to end compound statement");
 		}
 	}
-	else
-	{
-		tkerr("expected '{' to start compound statement");
-	}
 
 	iTk = start;
 	return false;
 }
 
+// stm: stmCompound
+//    | IF LPAR expr RPAR stm ( ELSE stm )?
+//    | WHILE LPAR expr RPAR stm
+//    | RETURN expr? SEMICOLON
+//    | expr? SEMICOLON
 bool stm()
 {
 	Token *start = iTk;
@@ -730,6 +740,7 @@ bool stm()
 								tkerr("syntax error in 'else' statement");
 							}
 						}
+
 						return true;
 					}
 					else
@@ -816,25 +827,21 @@ bool stm()
 	{
 		return true;
 	}
-	else
-	{
-		tkerr("syntax error in statement");
-	}
 
 	iTk = start;
 	return false;
 }
 
+// fnParam: typeBase ID arrayDecl?
 bool fnParam()
 {
 	if (typeBase())
 	{
 		if (consume(ID))
 		{
-			if (arrayDecl())
-			{
-				return true;
-			}
+			if (arrayDecl()) {}
+
+			return true;
 		}
 		else
 		{
@@ -844,6 +851,9 @@ bool fnParam()
 	return false;
 }
 
+// fnDef: ( typeBase | VOID ) ID 
+//        LPAR ( fnParam ( COMMA fnParam )* )? RPAR 
+//        stmCompound
 bool fnDef()
 {
 	Token *start = iTk;
@@ -888,6 +898,7 @@ bool fnDef()
 	return false;
 }
 
+// varDef: typeBase ID arrayDecl? SEMICOLON
 bool varDef()
 {
 	Token *start = iTk;
@@ -906,10 +917,6 @@ bool varDef()
 			{
 				tkerr("expected ';' after variable declaration");
 			}
-		}
-		else
-		{
-			tkerr("expected variable name after type");
 		}
 	}
 
