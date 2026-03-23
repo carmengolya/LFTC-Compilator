@@ -1,11 +1,14 @@
-CC       := gcc
-CFLAGS   := -Wall -Wextra -std=c11 -O2 -Isrc
-LDFLAGS  :=
+CC          := gcc
+CFLAGS      := -Wall -Wextra -std=c11 -O2 -Isrc
+LDFLAGS     :=
+VALGRIND    := valgrind --leak-check=full
 
-TARGET   := compiler
-TESTFILE := src/tests/testparser.c
-OUTFILE  := src/tests/testparser.out
-BUILD    := build
+TARGET      := compiler
+PARSER_IN   := src/tests/testparser.c
+PARSER_OUT  := src/tests/testparser.out
+LEXER_IN    := src/tests/testlex.c
+LEXER_OUT   := src/tests/testlex.out
+BUILD       := build
 
 # toate .c din src, dar fara src/tests
 SRC := $(filter-out src/tests/%, $(wildcard src/*.c src/*/*.c))
@@ -24,7 +27,12 @@ $(BUILD)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(TARGET)
-	./$(TARGET) $(TESTFILE) > $(OUTFILE)
+	./$(TARGET) $(PARSER_IN) > $(PARSER_OUT)
+	./$(TARGET) $(LEXER_IN)  > $(LEXER_OUT)
+
+mem_check: $(TARGET)
+	$(VALGRIND) ./$(TARGET)
 
 clean:
-	rm -rf $(BUILD) $(TARGET)
+	rm -rf $(BUILD)      $(TARGET)
+	rm -f  $(PARSER_OUT) $(LEXER_OUT)

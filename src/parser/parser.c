@@ -52,7 +52,6 @@ void tkerr(const char *fmt,...)
 
 bool consume(int code)
 {
-	printf("[DEBUG] trying to consume token code %d at line %d\n", code, iTk->line);
 	if (iTk->code == code)
 	{
 		consumedTk=iTk;

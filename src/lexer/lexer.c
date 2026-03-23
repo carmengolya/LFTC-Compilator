@@ -29,6 +29,7 @@ static const Keyword keywords[] = {
     {"while",  WHILE},
 };
 
+// returns the token code for a keyword, or 0 if it's not a keyword
 static int keywordCode(const char *text)
 {
     for (size_t i = 0; i < sizeof(keywords)/sizeof(keywords[0]); i++)
@@ -39,26 +40,27 @@ static int keywordCode(const char *text)
     return 0; // not a keyword
 }
 
+// decodes an escape sequence and returns the corresponding char, advancing the pointer
 static char decodeEscape(const char **ppch)
 {
     switch (**ppch)
     {
-        case 'a': return '\a';
-        case 'b': return '\b';
-        case 'f': return '\f';
-        case 'n': return '\n';
-        case 'r': return '\r';
-        case 't': return '\t';
-        case 'v': return '\v';
+        case 'a':  return '\a';
+        case 'b':  return '\b';
+        case 'f':  return '\f';
+        case 'n':  return '\n';
+        case 'r':  return '\r';
+        case 't':  return '\t';
+        case 'v':  return '\v';
         case '\\': return '\\';
         case '\'': return '\'';
-        case '"': return '"';
-        case '0': return '\0';
-        default:
-            err("invalid escape sequence: \\%c", **ppch);
+        case '"':  return '"';
+        case '0':  return '\0';
+        default:   err("invalid escape sequence: \\%c", **ppch);
     }
 }
 
+// appends a char to a dynamically allocated buffer, resizing it if necessary
 static void appendChar(char **buf, size_t *len, size_t *cap, char ch)
 {
     if (*len + 1 >= *cap)
@@ -72,49 +74,50 @@ static void appendChar(char **buf, size_t *len, size_t *cap, char ch)
     (*buf)[(*len)++] = ch;
 }
 
+// returns a string representation of the token code (for debugging)
 static const char *tokenName(int code)
 {
     switch (code)
     {
-        case ID: return "ID";
-        case TYPE_CHAR: return "TYPE_CHAR";
+        case ID:          return "ID";
+        case TYPE_CHAR:   return "TYPE_CHAR";
         case TYPE_DOUBLE: return "TYPE_DOUBLE";
-        case ELSE: return "ELSE";
-        case IF: return "IF";
-        case TYPE_INT: return "TYPE_INT";
-        case RETURN: return "RETURN";
-        case STRUCT: return "STRUCT";
-        case VOID: return "VOID";
-        case WHILE: return "WHILE";
-        case COMMA: return "COMMA";
-        case END: return "END";
-        case SEMICOLON: return "SEMICOLON";
-        case LPAR: return "LPAR";
-        case RPAR: return "RPAR";
-        case LBRACKET: return "LBRACKET";
-        case RBRACKET: return "RBRACKET";
-        case LACC: return "LACC";
-        case RACC: return "RACC";
-        case ASSIGN: return "ASSIGN";
-        case EQUAL: return "EQUAL";
-        case ADD: return "ADD";
-        case SUB: return "SUB";
-        case MUL: return "MUL";
-        case DIV: return "DIV";
-        case DOT: return "DOT";
-        case AND: return "AND";
-        case OR: return "OR";
-        case NOT: return "NOT";
-        case NOTEQ: return "NOTEQ";
-        case LESS: return "LESS";
-        case LESSEQ: return "LESSEQ";
-        case GREATER: return "GREATER";
-        case GREATEREQ: return "GREATEREQ";
-        case INT: return "INT";
-        case CHAR: return "CHAR";
-        case STRING: return "STRING";
-        case DOUBLE: return "DOUBLE";
-        default: return "UNKNOWN";
+        case ELSE:        return "ELSE";
+        case IF:          return "IF";
+        case TYPE_INT:    return "TYPE_INT";
+        case RETURN:      return "RETURN";
+        case STRUCT:      return "STRUCT";
+        case VOID:        return "VOID";
+        case WHILE:       return "WHILE";
+        case COMMA:       return "COMMA";
+        case END:         return "END";
+        case SEMICOLON:   return "SEMICOLON";
+        case LPAR:        return "LPAR";
+        case RPAR:        return "RPAR";
+        case LBRACKET:    return "LBRACKET";
+        case RBRACKET:    return "RBRACKET";
+        case LACC:        return "LACC";
+        case RACC:        return "RACC";
+        case ASSIGN:      return "ASSIGN";
+        case EQUAL:       return "EQUAL";
+        case ADD:         return "ADD";
+        case SUB:         return "SUB";
+        case MUL:         return "MUL";
+        case DIV:         return "DIV";
+        case DOT:         return "DOT";
+        case AND:         return "AND";
+        case OR:          return "OR";
+        case NOT:         return "NOT";
+        case NOTEQ:       return "NOTEQ";
+        case LESS:        return "LESS";
+        case LESSEQ:      return "LESSEQ";
+        case GREATER:     return "GREATER";
+        case GREATEREQ:   return "GREATEREQ";
+        case INT:         return "INT";
+        case CHAR:        return "CHAR";
+        case STRING:      return "STRING";
+        case DOUBLE:      return "DOUBLE";
+        default:          return "UNKNOWN";
     }
 }
 
@@ -126,6 +129,7 @@ Token *addTk(int code)
     tk->code = code;
     tk->line = line;
     tk->next = NULL;
+    
     if (lastTk)
     {
         lastTk->next = tk;
@@ -134,6 +138,7 @@ Token *addTk(int code)
     {
         tokens = tk;
     }
+
     lastTk = tk;
     return tk;
 }
@@ -273,7 +278,7 @@ Token *tokenize(const char *pch)
 
             case '/':
             {
-                if (pch[1] == '/')
+                if (pch[1] == '/') // comment line
                 {
                     pch += 2;
                     while (*pch != '\0' && *pch != '\n' && *pch != '\r')
@@ -407,7 +412,7 @@ Token *tokenize(const char *pch)
             {
                 if (isalpha(*pch) || *pch == '_')
                 {
-                    for (start = pch++; isalnum(*pch) || *pch == '_'; pch++){}
+                    for (start = pch++; isalnum(*pch) || *pch == '_'; pch++) {}
 
                     char *text = extract(start, pch);
                     int keyword = keywordCode(text);
