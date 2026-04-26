@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "parser.h"
+#include "lexer/lexer.h"
 
 // The parser implements a recursive descent parser for the following grammar:
 bool unit();
@@ -82,6 +83,10 @@ bool typeBase()
 		{
 			return true;
 		}
+		else
+		{
+			tkerr("expected struct name after 'struct'");
+		}
 	}
 	return false;
 }
@@ -89,46 +94,42 @@ bool typeBase()
 // structDef: STRUCT ID LACC ( varDef )* RACC SEMICOLON
 bool structDef()
 {
-	Token *start = iTk;
+    Token *start = iTk;
 
-	if (consume(STRUCT))
-	{
-		if (consume(ID))
-		{
-			if (consume(LACC))
-			{
-				for (;;)
-				{
-					if (varDef()) {}
-					else break;
-				}
-
-				if (consume(RACC))
-				{
-					if (consume(SEMICOLON))
-					{
-						return true;
-					}
-					else
+    if (consume(STRUCT))
+    {
+        if (consume(ID))
+        {
+            if (consume(LACC))
+            {
+                for (;;)
+                {
+                    if (varDef()) {}
+                    else break;
+                }
+                if (consume(RACC))
+                {
+                    if (consume(SEMICOLON))
+                    {
+                        return true;
+                    }
+                    else 
 					{
 						tkerr("expected ';' after struct definition");
 					}
-				}
-				else
+                }
+                else 
 				{
-					tkerr("expected '}' after struct body");
+					tkerr("expected '}' after struct body, but got '%s'", iTk->text);
 				}
-			}
-		}
-		else
-		{
-			tkerr("expected struct name after 'struct'");
-		}
-	}
+            }
+        }
+    }
 
-	iTk = start;
-	return false;
+    iTk = start;
+    return false;
 }
+
 // arrayDecl: LBRACKET ( INT )? RBRACKET
 bool arrayDecl()
 {
@@ -286,7 +287,7 @@ bool exprUnary()
 		}
 		else
 		{
-			tkerr("syntax error in unary expression");
+			tkerr("syntax error in unary expression: expected expression after operator");
 		}
 	}
 
@@ -347,7 +348,7 @@ bool exprMulPrim()
 		}
 		else
 		{
-			tkerr("syntax error in multiplication expression");
+			tkerr("syntax error in multiplication expression: expected expression after '*'");
 		}
 	}
 	else if (consume(DIV))
@@ -361,7 +362,7 @@ bool exprMulPrim()
 		}
 		else
 		{
-			tkerr("syntax error in division expression");
+			tkerr("syntax error in division expression: expected expression after '/'");
 		}
 	}
 
@@ -398,7 +399,7 @@ bool exprAddPrim()
 		}
 		else
 		{
-			tkerr("syntax error in addition expression");
+			tkerr("syntax error in addition expression: expected expression after '+'");
 		}
 	}
 	else if (consume(SUB))
@@ -412,7 +413,7 @@ bool exprAddPrim()
 		}
 		else
 		{
-			tkerr("syntax error in subtraction expression");
+			tkerr("syntax error in subtraction expression: expected expression after '-'");
 		}
 	}
 
@@ -449,7 +450,7 @@ bool exprRelPrim()
 		}
 		else
 		{
-			tkerr("syntax error in less-than expression");
+			tkerr("syntax error in less-than expression: expected expression after '<'");
 		}
 	}
 	else if (consume(LESSEQ))
@@ -463,7 +464,7 @@ bool exprRelPrim()
 		}
 		else
 		{
-			tkerr("syntax error in less-than-or-equal expression");
+			tkerr("syntax error in less-than-or-equal expression: expected expression after '<='");
 		}
 	}
 	else if (consume(GREATER))
@@ -477,7 +478,7 @@ bool exprRelPrim()
 		}
 		else
 		{
-			tkerr("syntax error in greater-than expression");
+			tkerr("syntax error in greater-than expression: expected expression after '>'");
 		}
 	}
 	else if (consume(GREATEREQ))
@@ -491,7 +492,7 @@ bool exprRelPrim()
 		}
 		else
 		{
-			tkerr("syntax error in greater-than-or-equal expression");
+			tkerr("syntax error in greater-than-or-equal expression: expected expression after '>='");
 		}
 	}
 
@@ -528,7 +529,7 @@ bool exprEqPrim()
 		}
 		else
 		{
-			tkerr("syntax error in equality expression");
+			tkerr("syntax error in equality expression: expected expression after '=='");
 		}
 	}
 	else if (consume(NOTEQ))
@@ -542,7 +543,7 @@ bool exprEqPrim()
 		}
 		else
 		{
-			tkerr("syntax error in inequality expression");
+			tkerr("syntax error in inequality expression: expected expression after '!='");
 		}
 	}
 	
@@ -579,7 +580,7 @@ bool exprAndPrim()
 		}
 		else
 		{
-			tkerr("syntax error in logical AND expression");
+			tkerr("syntax error in logical AND expression: expected expression after '&&'");
 		}
 	}
 
@@ -616,7 +617,7 @@ bool exprOrPrim()
 		}
 		else
 		{
-			tkerr("syntax error in logical OR expression");
+			tkerr("syntax error in logical OR expression: expected expression after '||'");
 		}
 	}
 
@@ -654,7 +655,7 @@ bool exprAssign()
 			}
 			else
 			{
-				tkerr("syntax error in assignment expression");
+				tkerr("syntax error in assignment expression: expected expression after '='");
 			}
 		}
 	}
@@ -869,7 +870,7 @@ bool fnDef()
 					{
 						if (!fnParam())
 						{
-							tkerr("syntax error in function parameters");
+							tkerr("syntax error in function parameters: expected parameter after ','");
 						}
 					}
 				}
@@ -882,7 +883,7 @@ bool fnDef()
 					}
 					else
 					{
-						tkerr("syntax error in function body");
+						tkerr("syntax error in function body: '{' expected");
 					}
 				}
 				else
@@ -890,6 +891,10 @@ bool fnDef()
 					tkerr("expected ')' after function parameters");
 				}
 			}
+		}
+		else
+		{
+			tkerr("expected function name after return type: %s", tokenName(consumedTk->code));
 		}
 	}
 
@@ -917,6 +922,10 @@ bool varDef()
 				tkerr("expected ';' after variable declaration");
 			}
 		}
+		else
+		{
+			tkerr("expected variable name after type");
+		}
 	}
 
 	iTk = start;
@@ -937,6 +946,8 @@ bool unit()
 	{
 		return true;
 	}
+
+	tkerr("unexpected token after end of program");
 	return false;
 }
 

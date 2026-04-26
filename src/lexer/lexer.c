@@ -75,7 +75,7 @@ static void appendChar(char **buf, size_t *len, size_t *cap, char ch)
 }
 
 // returns a string representation of the token code (for debugging)
-static const char *tokenName(int code)
+const char *tokenName(int code)
 {
     switch (code)
     {
@@ -441,6 +441,10 @@ Token *tokenize(const char *pch)
                     {
                         isDouble = 1;
                         pch++;
+                        if(!isdigit((unsigned char)*pch))
+                        {
+                            err("lipsa parte zecimala");
+                        }
                         while (isdigit((unsigned char)*pch))
                             pch++;
                     }
@@ -556,7 +560,7 @@ void showTokens(const Token *tokens)
                 printf(":%d", tk->i);
                 break;
             case DOUBLE:
-                printf(":%g", tk->d);
+                printf(":%.2f", tk->d); // sau %g, pentru optimizare
                 break;
             case CHAR:
                 printf(":%c", tk->c);
