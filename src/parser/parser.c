@@ -870,7 +870,7 @@ bool fnDef()
 					{
 						if (!fnParam())
 						{
-							tkerr("syntax error in function parameters: expected parameter after ','");
+							tkerr("syntax error in function parameters: missing/invalid type parameter after ','");
 						}
 					}
 				}
@@ -891,10 +891,6 @@ bool fnDef()
 					tkerr("expected ')' after function parameters");
 				}
 			}
-		}
-		else
-		{
-			tkerr("expected function name after return type: %s", tokenName(consumedTk->code));
 		}
 	}
 
