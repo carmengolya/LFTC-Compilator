@@ -201,10 +201,6 @@ bool exprPrimary()
 				tkerr("expected ')' after expression");
 			}
 		}
-		else
-		{
-			tkerr("syntax error in parenthesized expression");
-		}
 	}
 
 	if (consume(INT) || consume(CHAR) || consume(STRING) || consume(DOUBLE))
@@ -279,6 +275,7 @@ bool exprPostfix()
 // exprUnary: ( NOT | SUB ) exprUnary | exprPostfix
 bool exprUnary()
 {
+	Token *start = iTk;
 	if (consume(NOT) || consume(SUB))
 	{
 		if (exprUnary())
@@ -291,7 +288,9 @@ bool exprUnary()
 		}
 	}
 
-	else if (exprPostfix())
+	iTk = start;
+
+	if (exprPostfix())
 	{
 		return true;
 	}
@@ -315,6 +314,10 @@ bool exprCast()
 				if (exprCast())
 				{
 					return true;
+				}
+				else
+				{
+					tkerr("syntax error in cast expression: expected expression after ')'");
 				}
 			}
 			else
@@ -835,20 +838,20 @@ bool stm()
 // fnParam: typeBase ID arrayDecl?
 bool fnParam()
 {
-	if (typeBase())
-	{
-		if (consume(ID))
-		{
-			if (arrayDecl()) {}
+    Token *start = iTk;
 
-			return true;
-		}
-		else
-		{
-			tkerr("expected parameter name after type");
-		}
-	}
-	return false;
+    if (typeBase())
+    {
+        if (consume(ID))
+        {
+            if (arrayDecl()) {}
+            return true;
+        }
+        tkerr("expected parameter name after type");
+    }
+
+    iTk = start;
+    return false;
 }
 
 // fnDef: ( typeBase | VOID ) ID 
