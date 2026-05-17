@@ -7,15 +7,16 @@
 #include "domain/ad.h"
 
 Domain *symTable = NULL;
+Symbol *owner = NULL;
 
 int typeBaseSize(Type *t)
 {
 	switch (t->tb)
 	{
-		case TB_INT:return sizeof(int);
+		case TB_INT:   return sizeof(int);
 		case TB_DOUBLE:return sizeof(double);
-		case TB_CHAR:return sizeof(char);
-		case TB_VOID:return 0;
+		case TB_CHAR:  return sizeof(char);
+		case TB_VOID:  return 0;
 		default:
 		{		
 			// TB_STRUCT
@@ -67,7 +68,7 @@ Symbol *dupSymbol(Symbol *symbol)
 // s->next is already NULL from newSymbol
 Symbol *addSymbolToList(Symbol **list, Symbol *s)
 {
-	Symbol *iter=*list;
+	Symbol *iter = *list;
 	if (iter) 
 	{
 		while (iter->next) iter = iter->next;
@@ -82,7 +83,7 @@ Symbol *addSymbolToList(Symbol **list, Symbol *s)
 
 int symbolsLen(Symbol *list)
 {
-	int n=0;
+	int n = 0;
 	for (; list; list = list->next) n++;
 	return n;
 }

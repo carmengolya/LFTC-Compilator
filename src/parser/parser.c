@@ -3,19 +3,21 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#include "parser.h"
+#include "domain/ad.h"
 #include "lexer/lexer.h"
+#include "parser.h"
+#include "utils/utils.h"
 
 // The parser implements a recursive descent parser for the following grammar:
 bool unit();
 bool structDef();
 bool varDef();
-bool typeBase();
-bool arrayDecl();
+bool typeBase(Type *t);         // AD: primeste Type *t - atribut sintetizat pentru tipul de baza
+bool arrayDecl(Type *t);        // AD: primeste Type *t - atribut inout pentru dimensiunea vectorului
 bool fnDef();
 bool fnParam();
 bool stm();
-bool stmCompound();
+bool stmCompound(bool newDomain); // AD: primeste bool newDomain - daca true, creeaza un domeniu nou
 bool expr();
 bool exprAssign();
 bool exprOr();
@@ -55,32 +57,43 @@ bool consume(int code)
 {
 	if (iTk->code == code)
 	{
-		consumedTk=iTk;
+		consumedTk = iTk;
 		iTk = iTk->next;
 		return true;
 	}
 	return false;
 }
 
-// typeBase: TYPE_INT | TYPE_DOUBLE | TYPE_CHAR | STRUCT ID
-bool typeBase()
+// typeBase[out Type *t]: TYPE_INT | TYPE_DOUBLE | TYPE_CHAR | STRUCT ID
+// AD: sets the base type in t->tb
+// AD: for STRUCT, verifies that the structure was defined earlier and sets t->s
+bool typeBase(Type *t)
 {
+	t->n = -1; // AD: implicit, the symbol is not an array (n<0 means scalar)
+
 	if (consume(TYPE_INT))
 	{
+		t->tb = TB_INT; // AD: base type int
 		return true;
 	}
 	if (consume(TYPE_DOUBLE))
 	{
+		t->tb = TB_DOUBLE; // AD: base type double
 		return true;
 	}
 	if (consume(TYPE_CHAR))
 	{
+		t->tb = TB_CHAR; // AD: base type char
 		return true;
 	}
 	if (consume(STRUCT))
 	{
 		if (consume(ID))
 		{
+			Token *tkName = consumedTk; // AD: retains the token with the structure name
+            t->tb = TB_STRUCT;          // AD: base type struct
+            t->s = findSymbol(tkName->text); // AD: searches for the structure in all domains (must be defined earlier in the same or parent domain)
+            if (!t->s) tkerr("structure not defined: %s", tkName->text); // AD: error if the structure does not exist
 			return true;
 		}
 		else
@@ -91,7 +104,8 @@ bool typeBase()
 	return false;
 }
 
-// structDef: STRUCT ID LACC ( varDef )* RACC SEMICOLON
+// structDef: STRUCT ID[tkName] LACC ( varDef )* RACC SEMICOLON
+// AD: adds the structure to the current domain, creates a new domain for its members
 bool structDef()
 {
     Token *start = iTk;
@@ -100,17 +114,32 @@ bool structDef()
     {
         if (consume(ID))
         {
+			Token *tkName = consumedTk; // AD: retains the token with the structure name for adding it to the symbol table
+
             if (consume(LACC))
             {
-                for (;;)
-                {
-                    if (varDef()) {}
-                    else break;
-                }
+				// AD: verifies that the structure name is not already defined in the current domain
+				Symbol *s = findSymbolInDomain(symTable, tkName->text);
+				if (s) tkerr("symbol redefinition: %s", tkName->text);
+				
+				// AD: creates a symbol of type struct and adds it to the current domain
+				s = addSymbolToDomain(symTable, newSymbol(tkName->text, SK_STRUCT));
+				s->type.tb = TB_STRUCT;
+				s->type.s = s;   // AD: structure refers to itself (necessary for typeSize and recursive structures)
+				s->type.n = -1;  // AD: structure is not an array
+				
+				pushDomain(); // AD: creates a new domain for the structure's members
+				owner = s;    // AD: sets the owner to the current structure, used in varDef for SK_STRUCT
+
+                while(varDef()) {} // AD: parses the members of the structure; each varDef adds them to structMembers
+
                 if (consume(RACC))
                 {
                     if (consume(SEMICOLON))
                     {
+						owner = NULL; // AD: leave the structure, owner becomes NULL again (we are back in the global/parent domain)
+						dropDomain(); // AD: erase the structure domain (members have been copied to structMembers)
+
                         return true;
                     }
                     else 
@@ -130,14 +159,24 @@ bool structDef()
     return false;
 }
 
-// arrayDecl: LBRACKET ( INT )? RBRACKET
-bool arrayDecl()
+// arrayDecl[inout Type *t]: LBRACKET ( INT )? RBRACKET
+// AD: if it has a size, set t->n = its value (e.g., int v[10] -> t->n=10)
+// AD: if it doesn't have a size, set t->n = 0 (e.g., int v[] -> t->n=0)
+bool arrayDecl(Type *t)
 {
 	Token *start = iTk;
 
 	if (consume(LBRACKET))
 	{	
-		if(consume(INT)) {}
+		if(consume(INT)) 
+		{
+			Token *tkSize = consumedTk; // AD: retains the token with the array size
+            t->n = tkSize->i;           // AD: sets the size of the array in the type
+		}
+		else
+		{
+			t->n = 0; // AD: array without specified size (e.g., function parameter int v[])
+		}
 
 		if (consume(RBRACKET))
 		{
@@ -298,16 +337,18 @@ bool exprUnary()
 	return false;
 }
 
-// exprCast: LPAR typeBase arrayDecl? RPAR exprCast | exprUnary
+// exprCast: LPAR typeBase[&t] arrayDecl[&t]? RPAR exprCast | exprUnary
+// AD: t is declared locally - necessary to be able to call typeBase and arrayDecl with the new signature
 bool exprCast()
 {
 	Token *start = iTk;
+	Type t; // AD: the type used in the cast; must be declared to be able to call typeBase(&t) and arrayDecl(&t)
 
 	if (consume(LPAR))
 	{
-		if (typeBase())
+		if (typeBase(&t)) // AD: consumes the base type and sets it in t
 		{
-			if (arrayDecl()) {}
+			if (arrayDecl(&t)) {} // AD: optional - if [] exists, set t.n
 			
 			if (consume(RPAR))
 			{
@@ -684,35 +725,37 @@ bool expr()
 	return false;
 }
 
-// stmCompound: LACC ( varDef | stm )* RACC
-bool stmCompound()
+// stmCompound[in bool newDomain]: LACC ( varDef | stm )* RACC
+// AD: if newDomain == true, then a new domain is created at entry and deleted at exit
+// AD: called with true from stm() -> the if/while/else blocks have their own domain
+// AD: called with false from fnDef() -> the function body does not create an additional subdomain
+//     (the function's domain was already created by fnDef before LPAR)
+bool stmCompound(bool newDomain)
 {
-	Token *start = iTk;
+    Token *start = iTk;
+    if (consume(LACC))
+    {
+        if (newDomain) pushDomain(); // AD: creates new domain for this compound block
 
-	if (consume(LACC))
-	{
-		for (;;)
-		{
-			if (varDef()) {}
-			else if (stm()) {}
-			else break;
-		}
+        for (;;)
+        {
+            if (varDef()) {}      // AD: variables declared here belong to the current domain
+            else if (stm()) {}
+            else break;
+        }
 
-		if (consume(RACC))
-		{
-			return true;
-		}
-		else
-		{
-			tkerr("expected '}' to end compound statement");
-		}
-	}
-
-	iTk = start;
-	return false;
+        if (consume(RACC))
+        {
+            if (newDomain) dropDomain(); // AD: erases the domain of the compound block and all symbols in it
+            return true;
+        }
+        else tkerr("expected '}'");
+    }
+    iTk = start;
+    return false;
 }
 
-// stm: stmCompound
+// stm: stmCompound[true]
 //    | IF LPAR expr RPAR stm ( ELSE stm )?
 //    | WHILE LPAR expr RPAR stm
 //    | RETURN expr? SEMICOLON
@@ -721,7 +764,7 @@ bool stm()
 {
 	Token *start = iTk;
 
-	if (stmCompound())
+	if (stmCompound(true)) // AD: compound block from stm -> creates new domain for the block
 	{
 		return true;
 	}
@@ -835,16 +878,40 @@ bool stm()
 	return false;
 }
 
-// fnParam: typeBase ID arrayDecl?
+// fnParam: typeBase[&t] ID[tkName] ( arrayDecl[&t] )?
+// AD: adds the parameter to the current domain (local domain of the function)
+// AD: adds a copy of the parameter to the function's parameter list (owner)
+// AD: parameters declared as arrays with size (e.g., int v[10]) lose their size -> treated as pointers (t.n=0)
 bool fnParam()
 {
     Token *start = iTk;
+    Type t; // AD: parameter type, completed by typeBase and arrayDecl
 
-    if (typeBase())
+    if (typeBase(&t)) // AD: consumes the base type and sets it in t
     {
         if (consume(ID))
         {
-            if (arrayDecl()) {}
+            Token *tkName = consumedTk; // AD: remembers the token with the parameter name
+
+            if (arrayDecl(&t)) // AD: optional - if [] exists, sets t.n
+			{
+				t.n = 0; // AD: the vector parameters lose their size (int v[10] becomes int v[])
+			}
+            
+            // AD: verifies redefinition in the current domain (local domain of the function)
+            Symbol *param = findSymbolInDomain(symTable, tkName->text);
+            if (param) tkerr("symbol redefinition: %s", tkName->text);
+
+            // AD: creates symbol of type parameter and completes the fields
+            param = newSymbol(tkName->text, SK_PARAM);
+            param->type = t;
+            param->owner = owner;                          // AD: owner is the current function
+            param->paramIdx = symbolsLen(owner->fn.params); // AD: the index of the parameter in the function's parameter list
+
+            // AD: the parameter is added to both the current domain and the function's parameter list
+            addSymbolToDomain(symTable, param);
+            addSymbolToList(&owner->fn.params, dupSymbol(param)); // AD: copy in fn.params to survive dropDomain
+
             return true;
         }
         tkerr("expected parameter name after type");
@@ -854,66 +921,143 @@ bool fnParam()
     return false;
 }
 
-// fnDef: ( typeBase | VOID ) ID 
-//        LPAR ( fnParam ( COMMA fnParam )* )? RPAR 
-//        stmCompound
+// fnDef: ( typeBase[&t] | VOID ) ID[tkName] LPAR ( fnParam ( COMMA fnParam )* )? RPAR stmCompound[false]
+// AD: adds the function to the current domain
+// AD: creates a new domain for parameters and local variables (immediately after LPAR)
+// AD: the function body {...} does not create an additional subdomain (stmCompound called with false)
 bool fnDef()
 {
-	Token *start = iTk;
+    Token *start = iTk;
+    Type t; // AD: the returned type of the function, completed by typeBase or set manually for VOID
 
-	if (typeBase() || consume(VOID))
+	bool hasType = false;
+	if (typeBase(&t)) // AD: tries to consume a base type (int, double, char, struct X)
 	{
-		if (consume(ID))
-		{
-			if (consume(LPAR))
-			{
-				if (fnParam())
-				{
-					while (consume(COMMA))
-					{
-						if (!fnParam())
-						{
-							tkerr("syntax error in function parameters: missing/invalid type parameter after ','");
-						}
-					}
-				}
-				
-				if (consume(RPAR))
-				{
-					if (stmCompound())
-					{
-						return true;
-					}
-					else
-					{
-						tkerr("syntax error in function body: '{' expected");
-					}
-				}
-				else
-				{
-					tkerr("expected ')' after function parameters");
-				}
-			}
-		}
+		hasType = true;
+	}
+	else if (consume(VOID))
+	{
+		// AD: void function - sets the type manually because VOID is not covered by typeBase
+		t.tb = TB_VOID;
+		t.n = -1;
+		t.s = NULL;
+		hasType = true;
 	}
 
-	iTk = start;
-	return false;
+	if (!hasType)
+	{
+		iTk = start; // AD: it is not a function definition, reset the position
+		return false;
+	}
+
+    if (hasType)
+    {
+        if (consume(ID))
+        {
+            Token *tkName = consumedTk; // AD: remembers the token with the function name
+
+            if (consume(LPAR))
+            {
+				// AD: verifies that the function name is not already defined in the current domain
+				Symbol *fn = findSymbolInDomain(symTable, tkName->text);
+				if (fn) tkerr("symbol redefinition: %s", tkName->text);
+
+				// AD: creates the function symbol, sets the return type and adds it to the current domain
+				fn = newSymbol(tkName->text, SK_FN);
+				fn->type = t;
+				addSymbolToDomain(symTable, fn);
+
+				owner = fn;   // AD: sets the owner to the current function (used in fnParam and varDef)
+				pushDomain(); // AD: creates the local domain of the function (for parameters and local variables)
+
+
+                if (fnParam()) // AD: parses the first parameter (if it exists)
+                {
+                    while (consume(COMMA))
+                    {
+                        if (!fnParam()) tkerr("expected parameter after ','");
+                    }
+                }
+                if (consume(RPAR))
+                {
+                    // AD: stmCompound(false) - body of the function does not create a new subdomain
+                    // AD: function domain (created above with pushDomain) covers both parameters and body
+                    if (stmCompound(false))
+                    {
+                        dropDomain(); // AD: erases the local domain of the function
+                        owner = NULL; // AD: leaving the function, owner becomes NULL again (global scope)
+                        return true;
+                    }
+                    else tkerr("expected '{' for function body");
+                }
+                else tkerr("expected ')' after function parameters");
+            }
+        }
+    }
+
+    iTk = start;
+    return false;
 }
 
-// varDef: typeBase ID arrayDecl? SEMICOLON
+// varDef: typeBase[&t] ID[tkName] ( arrayDecl[&t] )? SEMICOLON
+// AD: adds the variable to the current domain and to the owner's structure (if it exists)
+// AD: for global variables (owner==NULL), allocates memory for their values
+// AD: for local variables of a function, sets varIdx and adds to fn.locals
+// AD: for members of a structure, sets varIdx (offset) and adds to structMembers
 bool varDef()
 {
 	Token *start = iTk;
+	Type t; // AD: the type of the variable, completed by typeBase and arrayDecl
 
-	if (typeBase())
+	if (typeBase(&t)) // AD: consumes the base type and sets it in t
 	{
 		if (consume(ID))
 		{
-			if(arrayDecl()) {}
+			Token *tkName = consumedTk; // AD: remembers the token with the variable name
+
+			if(arrayDecl(&t)) // AD: optional - if [] exists, sets t.n
+			{
+				// AD: vectors in varDef have to have a specified dimension (int v[] is invalid as a variable)
+				if (t.n == 0) tkerr("a vector variable must have a specified dimension");
+			}
 			
 			if(consume(SEMICOLON))
 			{
+				// AD: verifies that the variable name is not already defined in the current domain
+				Symbol *var = findSymbolInDomain(symTable, tkName->text);
+                if (var) tkerr("symbol redefinition: %s", tkName->text);
+
+                // AD: creates the variable symbol and sets its type and owner
+                var = newSymbol(tkName->text, SK_VAR);
+                var->type = t;
+                var->owner = owner; // AD: NULL if global, otherwise the function/struct in which it is defined
+                addSymbolToDomain(symTable, var); // AD: adds the variable to the current domain
+
+                if (owner)
+                {
+                    switch (owner->kind)
+                    {
+                        case SK_FN:
+                            // AD: local variable of the function - varIdx = position in the locals list
+                            var->varIdx = symbolsLen(owner->fn.locals);
+                            // AD: adds a copy in fn.locals for persistence across dropDomain
+                            addSymbolToList(&owner->fn.locals, dupSymbol(var));
+                            break;
+                        case SK_STRUCT:
+                            // AD: member of the struct - varIdx = the offset in bytes compared to the beginning of the struct
+                            var->varIdx = typeSize(&owner->type);
+                            // AD: adds a copy in structMembers for persistence across dropDomain
+                            addSymbolToList(&owner->structMembers, dupSymbol(var));
+                            break;
+						default: break; // AD: SK_VAR and/or SK_PARAM cannot be owners, so this default case should not be hit
+                    }
+                }
+                else
+                {
+                    // AD: global variable - allocates memory for the variable value
+                    var->varMem = safeAlloc(typeSize(&t));
+                }
+
 				return true;
 			}
 			else
@@ -923,7 +1067,7 @@ bool varDef()
 		}
 		else
 		{
-			tkerr("expected variable name after type");
+			tkerr("expected variable name after type or fnDef or '{' from struct definition");
 		}
 	}
 

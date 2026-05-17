@@ -86,6 +86,9 @@ typedef struct _Domain {
 // the current domain (the top of the domains's stack)
 extern Domain *symTable;
 
+// the current enclosing function or struct, used for error messages and to set the owner of symbols defined in that function/struct
+extern Symbol *owner;
+
 // adds a domain to the top of the domains's stack
 Domain *pushDomain();
 // deletes the domain from the top of the domains's stack

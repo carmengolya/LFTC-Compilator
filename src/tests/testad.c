@@ -6,6 +6,7 @@ double p[100];
 struct S1{
 	int i;
 	double d[2];
+	double e[4];
 	char x;
 	};
 struct S1 p1;

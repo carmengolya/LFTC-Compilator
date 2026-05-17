@@ -18,12 +18,12 @@ int main(int argc, char **argv)
     Token *tokens = tokenize(input);
     showTokens(tokens);
 
-    // pushDomain();
+    pushDomain();
 
     parse(tokens);
-
-    // showDomain(symTable, "global");
-    // dropDomain();
+    
+    showDomain(symTable, "global");
+    dropDomain();
 
     free(input);
     return 0;
