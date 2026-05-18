@@ -10,6 +10,8 @@ LEXER_IN    := src/tests/testlex.c
 LEXER_OUT   := src/tests/testlex.out
 DOMAIN_IN   := src/tests/testad.c
 DOMAIN_OUT  := src/tests/testad.out
+TYPES_IN    := src/tests/testat.c
+TYPES_OUT   := src/tests/testat.out
 BUILD       := build
 
 # toate .c din src, dar fara src/tests
@@ -29,13 +31,16 @@ $(BUILD)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(TARGET)
-	./$(TARGET) $(PARSER_IN) > $(PARSER_OUT)
-	./$(TARGET) $(LEXER_IN)  > $(LEXER_OUT)
-	./$(TARGET) $(DOMAIN_IN) > $(DOMAIN_OUT)
+# 	./$(TARGET) $(PARSER_IN) > $(PARSER_OUT)
+# 	./$(TARGET) $(LEXER_IN)  > $(LEXER_OUT)
+# 	./$(TARGET) $(DOMAIN_IN) > $(DOMAIN_OUT)
+	./$(TARGET) $(TYPES_IN)  > $(TYPES_OUT)
 
 mem_check: $(TARGET)
 	$(VALGRIND) ./$(TARGET)
 
 clean:
 	rm -rf $(BUILD)      $(TARGET)
-	rm -f  $(PARSER_OUT) $(LEXER_OUT) $(DOMAIN_OUT)
+
+clean_all:
+	rm -f  $(PARSER_OUT) $(LEXER_OUT) $(DOMAIN_OUT) $(TYPES_OUT)
