@@ -1,187 +1,221 @@
-======================================================================
-TEST FILE: TYPE ANALYSIS ERRORS (AtomC)
-======================================================================
+--- Error 1: "the if condition must be a scalar value" ---
+void test1() { // at.c decomentat
+    if (a) {
+        a.n = 1;
+    }
+}
 
-----------------------------------------------------------------------
-PART 1: ERRORS IN CONTROL STATEMENTS (IF, WHILE, RETURN)
-----------------------------------------------------------------------
+--- Error 2: "the while condition must be a scalar value" ---
+void test2() { // at.c decomentat
+    while (a) {
+        a.n = 1;
+    }
+}
 
-1. Error: "the if condition must be a scalar value"
-   Cause: The condition inside the 'if' statement must be a scalar type, not a structure.
-   Code to insert in function h:
-       if (a) { int x = 1; }
+--- Error 3: "a void function cannot return a value" ---
+void test3() {
+    f(v.text, 0, '#');
+    return 1;
+}
 
-2. Error: "the while condition must be a scalar value"
-   Cause: The condition inside the 'while' statement must be a scalar type, not a structure.
-   Code to insert in function h:
-       while (a) { int x = 1; }
+--- Error 4: "the return value must be a scalar value" ---
 
-3. Error: "a void function cannot return a value"
-   Cause: A function with a void return type cannot return any value.
-   Code to insert in function f (at the end):
-       return 42;
+int test4(int x, int y) { // at.c decomentat
+    return a;
+}
 
-4. Error: "the return value must be a scalar value"
-   Cause: The expression returned by a non-void function must evaluate to a scalar.
-   Code to insert in function h (at the end):
-       return a;
+--- Error 5: "cannot convert the return expression type to the function return type" ---
+int test5(int x, int y) { // at.c comentat
+    return "text";
+}
 
-5. Error: "cannot convert the return expression type to the function return type"
-   Cause: The type of the return expression cannot be converted to the function's return type.
-   Code to insert in function h (at the end):
-       return text;
+--- Errro 6: "a non-void function must return a value" ---
+int test6(int x, int y) {
+    return;
+}
 
+--- Error 7: "the assign destination must be a left-value" ---
+void test7() {
+    5 = a.n;
+}
 
-----------------------------------------------------------------------
-PART 2: ERRORS IN ASSIGNMENT OPERATIONS (=)
-----------------------------------------------------------------------
+--- Error 8: "the assign destination cannot be constant" ---
+void test8() {
+    a.text = "salut";
+}
 
-6. Error: "the assign destination must be a left-value"
-   Cause: The left side of an assignment must be an lval (left-value).
-   Code to insert in function f or h:
-       1 = x;
+--- Error 9: "the assign destination must be scalar" ---
+void test9() {
+    a = 5; // decometat at.c
+}
 
-7. Error: "the assign destination cannot be constant"
-   Cause: The destination of an assignment cannot be a constant value.
-   Code to insert in function f or h:
-       "test"[0] = 'a';
+--- Error 10: "the assign source must be scalar" ---
+void test10() { // decomentat at.c
+    int x;
+    x = a;
+}
 
-8. Error: "the assign destination must be scalar"
-   Cause: The assignment destination (left side) must be a scalar, not a structure.
-   Code to insert in function f or h:
-       a = x;
+--- Error 11: "the assign source cannot be converted to destination" ---
+struct S2 { int y; };
+struct S2 b;
 
-9. Error: "the assign source must be scalar"
-   Cause: The assignment source (right side) must be a scalar, not a structure.
-   Code to insert in function f or h:
-       x = a;
+void test11() {
+    a = b;
+}
 
-10. Error: "the assign source cannot be converted to destination"
-    Cause: The type of the source expression cannot be converted to the destination type.
-    Code to insert in function f or h:
-        x = f;
+--- Error 12: "invalid operand type for ||" ---
+void test12() {
+    int x;
+    x = v || 1;
+}
 
+--- Error 13: "invalid operand type for &&" ---
+void test13() {
+    int x;
+    x = v && 1;
+}
 
-----------------------------------------------------------------------
-PART 3: ERRORS IN ARITHMETIC AND LOGICAL OPERATORS
-----------------------------------------------------------------------
+--- Error 14: "invalid operand type for ==" ---
+void test14() {
+    int x;
+    x = v == 1;
+}
 
-11. Error: "invalid operand type for ||"
-    Cause: Both operands for the logical OR operator must be scalar types and cannot be structures.
-    Code to insert in function h:
-        if (x || a) { int v = 1; }
+--- Error 15: "invalid operand type for =!" ---
+void test15() {
+    int x;
+    x = v != 1;
+}
 
-12. Error: "invalid operand type for &&"
-    Cause: Both operands for the logical AND operator must be scalar types and cannot be structures.
-    Code to insert in function h:
-        if (a && y) { int v = 1; }
+--- Error 16: "invalid operand type for <" ---
+void test16() {
+    int x;
+    x = v < 1;
+}
 
-13. Error: "invalid operand type for == or !="
-    Cause: Both operands for equality/inequality must be scalar types and cannot be structures.
-    Code to insert in function h:
-        if (a == v[0]) { int v = 1; }
+--- Error 17: "invalid operand type for <=" ---
+void test17() {
+    int x;
+    x = v <= 1;
+}
 
-14. Error: "invalid operand type for  , <="
-    Cause: Both operands for relational operators (<, <=, >, >=) must be scalar types and cannot be structures.
-    Code to insert in function h:
-        if (a > y) { int v = 1; }
+--- Error 18: "invalid operand type for >" ---
+void test18() {
+    int x;
+    x = v > 1;
+}
 
-15. Error: "invalid operand type foror"
-    Cause: Addition or subtraction operators do not accept structures or arrays as operands.
-    Code to insert in function f or h:
-        x = y + a;
+--- Error 19: "invalid operand type for >=" ---
+void test19() {
+    int x;
+    x = v >= 1;
+}
 
-16. Error: "invalid operand type for or /"
-    Cause: Multiplication or division operators do not accept structures or arrays as operands.
-    Code to insert in function f or h:
-        x = y * a;
+--- Error 20: "invalid operand type for +" ---
+void test20() {
+    int x;
+    x = v + 1;
+}
 
+--- Error 21: "invalid operand type for -" ---
+void test21() {
+    int x;
+    x = v - 1;
+}
 
-----------------------------------------------------------------------
-PART 4: ERRORS IN TYPE CASTING (EXPRCAST)
-----------------------------------------------------------------------
+--- Error 22: "invalid operand type for *" ---
+void test22() {
+    int x;
+    x = v * 1;
+}
 
-17. Error: "cannot convert to a struct type"
-    Cause: Attempting to cast a value to a structure type is strictly prohibited.
-    Code to insert in function f or h:
-        x = (struct S)y;
+--- Error 23: "invalid operand type for /" ---
+void test23() {
+    int x;
+    x = v / 1;
+}
 
-18. Error: "cannot convert a struct"
-    Cause: A structure type cannot be cast or converted into another type.
-    Code to insert in function f or h:
-        x = (int)a;
+--- Error 24: "cannot convert to a struct type" ---
+void test24() {
+    int x;
+    x = (struct S)x;
+}
 
-19. Error: "an array can be converted only to another array"
-    Cause: An array expression cannot be explicitly cast to a non-array/scalar type.
-    Code to insert in function h:
-        x = (int)text;
+--- Error 25: "cannot convert a struct" ---
+void test25() {
+    int x;
+    x = (int)a;
+}
 
-20. Error: "a scalar can be converted only to another scalar"
-    Cause: A scalar type cannot be cast or converted into an array type.
-    Code to insert in function f or h:
-        text = (char[])x;
+--- Error 26: "an array can be converted only to another array" ---
+void test26() {
+    int x;
+	int w[20];
+    x = (int)w;
+}
 
+--- Error 27: "a scalar can be converted only to another scalar" ---
+void test27() {
+    int x;
+    x = (int[])x;
+}
 
-----------------------------------------------------------------------
-PART 5: ERRORS IN UNARY AND POSTFIX OPERATORS (INDEXING, STRUCT FIELDS)
-----------------------------------------------------------------------
+--- Error 28: "a field can only be selected from a struct" ---
+void test28() {
+    int x;
+    int y;
+    y = x.n;
+}
 
-21. Error: "unary or! must have a scalar operand"
-    Cause: Unary minus (-) or logical NOT (!) requires a scalar operand.
-    Code to insert in function f or h:
-        x = -a;
+--- Error 29: "the structure %s does not have a field %s" ---
+void test29() {
+    int x;
+    x = a.xyz;
+}
 
-22. Error: "only an array can be indexed"
-    Cause: Attempting to use array indexing brackets on a variable that is not an array.
-    Code to insert in function f (replace text[i] with ch[i]):
-        ch[i] = '#';
+--- Error 30: "only an array can be indexed" ---
+void test30() {
+    int x;
+    int y;
+    y = x[0];
+}
 
-23. Error: "the index is not convertible to int"
-    Cause: The index expression used inside the brackets must be convertible to an integer.
-    Code to insert in function f:
-        text[a] = '#';
+--- Error 31: "the index is not convertible to int" ---
+void test31() {
+    int x;
+    x = v[a];
+}
 
-24. Error: "a field can only be selected from a struct"
-    Cause: The dot operator (.) can only be applied to variables of a struct type.
-    Code to insert in function f or h:
-        x.n = 5;
+--- Error 32: "a function can only be called" ---
+void test32() {
+    int x;
+    x = f + 1;
+}
 
-25. Error: "the structure %s does not have a field %s"
-    Cause: The field name specified after the dot operator (.) does not exist in the struct definition.
-    Code to insert in function h:
-        a.age = 20;
+--- Error 33: "too few arguments in function call" ---
+void test33() {
+    f(v[0].text, 0);
+}
 
+--- Error 34: "in call, cannot convert the argument type to the parameter type" ---
+void test34() {
+    f(v[0].text, a, '#');
+}
 
-----------------------------------------------------------------------
-PART 6: ERRORS IN FUNCTION CALLS & PRIMARY EXPRESSIONS
-----------------------------------------------------------------------
+--- Error 35: "too many arguments in function call" ---
+void test35() {
+    f(v[0].text, 0, '#', 1);
+}
 
-26. Error: "undefined id: %s"
-    Cause: The identifier used does not exist in the symbol table.
-    Code to insert in function f or h:
-        nonExistentFunction();
+--- Error 36: "only a function can be called" ---
+void test36() {
+    int x;
+    int y;
+    y = x();
+}
 
-27. Error: "only a function can be called"
-    Cause: Attempting to use function call parentheses () on an identifier that is not a function.
-    Code to insert in function f or h:
-        x();
-
-28. Error: "too many arguments in function call"
-    Cause: The number of arguments passed in the call exceeds the number of parameters defined by the function.
-    Code to insert in function h:
-        f(text, y, '#', 100);
-
-29. Error: "in call, cannot convert the argument type to the parameter type"
-    Cause: The data type of the passed argument cannot be converted to the required parameter type.
-    Code to insert in function h:
-        f(a, y, '#');
-
-30. Error: "too few arguments in function call"
-    Cause: The number of arguments passed in the call is less than the number of parameters defined.
-    Code to insert in function h:
-        f(text, y);
-
-31. Error: "a function can only be called"
-    Cause: A function name is referenced on its own in an expression without parentheses.
-    Code to insert in function f or h:
-        x = f;
+--- Error 37: "undefined id: %s" ---
+void test37() {
+    int x;
+    x = xyz;
+}

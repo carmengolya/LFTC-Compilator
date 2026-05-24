@@ -19,6 +19,8 @@ bool fnDef();
 bool fnParam();
 bool stm();
 bool stmCompound(bool newDomain);
+
+
 bool expr(Ret *r);
 bool exprAssign(Ret *r);
 bool exprOr(Ret *r);

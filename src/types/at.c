@@ -6,6 +6,7 @@ bool canBeScalar(Ret* r)
 	Type* t = &r->type;
 	if (t->n >= 0) return false;
 	if (t->tb == TB_VOID) return false;
+	// if (t->tb == TB_STRUCT) return false; // AT: this needs to be decommented to generate the error "the if condition must be a scalar value" or "the while condition must be a scalar value" or "the return value must be a scalar value"
 	return true;
 }
 
