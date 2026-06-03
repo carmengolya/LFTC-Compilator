@@ -45,7 +45,7 @@ bool arithTypeTo(Type *t1, Type *t2, Type *dst)
 {
 	// there are no arithmetic operations with pointers
 	if (t1->n >= 0 || t2->n >= 0) return false;
-	// the result of an arithmetic operation cannot be poinetr or struct
+	// the result of an arithmetic operation cannot be pointer or struct
 	dst->s = NULL;
 	dst->n = -1;
 	switch (t1->tb)

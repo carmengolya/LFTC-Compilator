@@ -1,61 +1,111 @@
---- Error 1: "the if condition must be a scalar value" ---
-void test1() { // at.c decomentat
-    if (a) {
-        a.n = 1;
-    }
+// ============================================================
+// Base valid program (testat.c):
+// struct S{ int n; char text[16]; };
+// struct S a; struct S v[10];
+// void f(char text[],int i,char ch){ text[i]=ch; }
+// int h(int x,int y){ if(x>0&&x<y){ f(v[x].text,y,'#'); return 1; } return 0; }
+// ============================================================
+
+
+// ------------------------------------------------------------
+// AT TEST 1 — "the if condition must be a scalar value"
+// Cause: void function return (TB_VOID) is not scalar
+// ------------------------------------------------------------
+void retVoid() {}
+
+void test1() {
+    if (retVoid()) {}
 }
 
---- Error 2: "the while condition must be a scalar value" ---
-void test2() { // at.c decomentat
-    while (a) {
-        a.n = 1;
-    }
+
+// ------------------------------------------------------------
+// AT TEST 2 — "the while condition must be a scalar value"
+// Cause: void function return (TB_VOID) is not scalar
+// ------------------------------------------------------------
+void retVoid() {}
+
+void test2() {
+    while (retVoid()) {}
 }
 
---- Error 3: "a void function cannot return a value" ---
+
+// ------------------------------------------------------------
+// AT TEST 3 — "a void function cannot return a value"
+// Cause: returning an int from a void function
+// ------------------------------------------------------------
 void test3() {
-    f(v.text, 0, '#');
     return 1;
 }
 
---- Error 4: "the return value must be a scalar value" ---
 
-int test4(int x, int y) { // at.c decomentat
+// ------------------------------------------------------------
+// AT TEST 4 — "the return value must be a scalar value"
+// Cause: v is an array (n>=0), canBeScalar returns false
+// ------------------------------------------------------------
+int test4(int x, int y) {
+    return v;
+}
+
+
+// ------------------------------------------------------------
+// AT TEST 5 — "cannot convert the return expression type to the function return type"
+// Cause: a is a struct (TB_STRUCT), not convertible to int
+// ------------------------------------------------------------
+int test5(int x, int y) {
     return a;
 }
 
---- Error 5: "cannot convert the return expression type to the function return type" ---
-int test5(int x, int y) { // at.c comentat
-    return "text";
-}
 
---- Errro 6: "a non-void function must return a value" ---
+// ------------------------------------------------------------
+// AT TEST 6 — "a non-void function must return a value"
+// Cause: empty return in a non-void function
+// ------------------------------------------------------------
 int test6(int x, int y) {
     return;
 }
 
---- Error 7: "the assign destination must be a left-value" ---
+
+// ------------------------------------------------------------
+// AT TEST 7 — "the assign destination must be a left-value"
+// Cause: assigning to a literal (rval)
+// ------------------------------------------------------------
 void test7() {
     5 = a.n;
 }
 
---- Error 8: "the assign destination cannot be constant" ---
+
+// ------------------------------------------------------------
+// AT TEST 8 — "the assign destination cannot be constant"
+// Cause: arrays are ct=true, cannot assign to array name
+// ------------------------------------------------------------
 void test8() {
     a.text = "salut";
 }
 
---- Error 9: "the assign destination must be scalar" ---
-void test9() {
-    a = 5; // decometat at.c
+
+// ------------------------------------------------------------
+// AT TEST 9 — "the assign destination must be scalar"
+// Cause: at.c decomentat (TB_STRUCT not scalar)
+// ------------------------------------------------------------
+void test9() { // at.c decomentat
+    a = 5;
 }
 
---- Error 10: "the assign source must be scalar" ---
-void test10() { // decomentat at.c
+
+// ------------------------------------------------------------
+// AT TEST 10 — "the assign source must be scalar"
+// Cause: at.c decomentat (TB_STRUCT not scalar)
+// ------------------------------------------------------------
+void test10() { // at.c decomentat
     int x;
     x = a;
 }
 
---- Error 11: "the assign source cannot be converted to destination" ---
+
+// ------------------------------------------------------------
+// AT TEST 11 — "the assign source cannot be converted to destination"
+// Cause: struct S (from at.c) != struct S2 -> convTo returns false
+// ------------------------------------------------------------
 struct S2 { int y; };
 struct S2 b;
 
@@ -63,158 +113,263 @@ void test11() {
     a = b;
 }
 
---- Error 12: "invalid operand type for ||" ---
+
+// ------------------------------------------------------------
+// AT TEST 12 — "invalid operand type for ||"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test12() {
     int x;
     x = v || 1;
 }
 
---- Error 13: "invalid operand type for &&" ---
+
+// ------------------------------------------------------------
+// AT TEST 13 — "invalid operand type for &&"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test13() {
     int x;
     x = v && 1;
 }
 
---- Error 14: "invalid operand type for ==" ---
+
+// ------------------------------------------------------------
+// AT TEST 14 — "invalid operand type for =="
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test14() {
     int x;
     x = v == 1;
 }
 
---- Error 15: "invalid operand type for =!" ---
+
+// ------------------------------------------------------------
+// AT TEST 15 — "invalid operand type for !="
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test15() {
     int x;
     x = v != 1;
 }
 
---- Error 16: "invalid operand type for <" ---
+
+// ------------------------------------------------------------
+// AT TEST 16 — "invalid operand type for <"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test16() {
     int x;
     x = v < 1;
 }
 
---- Error 17: "invalid operand type for <=" ---
+
+// ------------------------------------------------------------
+// AT TEST 17 — "invalid operand type for <="
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test17() {
     int x;
     x = v <= 1;
 }
 
---- Error 18: "invalid operand type for >" ---
+
+// ------------------------------------------------------------
+// AT TEST 18 — "invalid operand type for >"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test18() {
     int x;
     x = v > 1;
 }
 
---- Error 19: "invalid operand type for >=" ---
+
+// ------------------------------------------------------------
+// AT TEST 19 — "invalid operand type for >="
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test19() {
     int x;
     x = v >= 1;
 }
 
---- Error 20: "invalid operand type for +" ---
+
+// ------------------------------------------------------------
+// AT TEST 20 — "invalid operand type for +"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test20() {
     int x;
     x = v + 1;
 }
 
---- Error 21: "invalid operand type for -" ---
+
+// ------------------------------------------------------------
+// AT TEST 21 — "invalid operand type for -"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test21() {
     int x;
     x = v - 1;
 }
 
---- Error 22: "invalid operand type for *" ---
+
+// ------------------------------------------------------------
+// AT TEST 22 — "invalid operand type for *"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test22() {
     int x;
     x = v * 1;
 }
 
---- Error 23: "invalid operand type for /" ---
+
+// ------------------------------------------------------------
+// AT TEST 23 — "invalid operand type for /"
+// Cause: v is an array (n>=0), arithTypeTo fails
+// ------------------------------------------------------------
 void test23() {
     int x;
     x = v / 1;
 }
 
---- Error 24: "cannot convert to a struct type" ---
+
+// ------------------------------------------------------------
+// AT TEST 24 — "cannot convert to a struct type"
+// Cause: cast destination is TB_STRUCT
+// ------------------------------------------------------------
 void test24() {
     int x;
     x = (struct S)x;
 }
 
---- Error 25: "cannot convert a struct" ---
+
+// ------------------------------------------------------------
+// AT TEST 25 — "cannot convert a struct"
+// Cause: cast source is TB_STRUCT
+// ------------------------------------------------------------
 void test25() {
     int x;
     x = (int)a;
 }
 
---- Error 26: "an array can be converted only to another array" ---
+
+// ------------------------------------------------------------
+// AT TEST 26 — "an array can be converted only to another array"
+// Cause: casting a local int array to scalar int
+// ------------------------------------------------------------
 void test26() {
     int x;
-	int w[20];
+    int w[20];
     x = (int)w;
 }
 
---- Error 27: "a scalar can be converted only to another scalar" ---
+
+// ------------------------------------------------------------
+// AT TEST 27 — "a scalar can be converted only to another scalar"
+// Cause: casting a scalar int to array type int[]
+// ------------------------------------------------------------
 void test27() {
     int x;
-    x = (int[])x;
+    int y;
+    y = (int[])x;
 }
 
---- Error 28: "a field can only be selected from a struct" ---
+
+// ------------------------------------------------------------
+// AT TEST 28 — "a field can only be selected from a struct"
+// Cause: dot operator on a plain int
+// ------------------------------------------------------------
 void test28() {
     int x;
     int y;
     y = x.n;
 }
 
---- Error 29: "the structure %s does not have a field %s" ---
+
+// ------------------------------------------------------------
+// AT TEST 29 — "the structure S does not have a field xyz"
+// Cause: field xyz does not exist in struct S
+// ------------------------------------------------------------
 void test29() {
     int x;
     x = a.xyz;
 }
 
---- Error 30: "only an array can be indexed" ---
+
+// ------------------------------------------------------------
+// AT TEST 30 — "only an array can be indexed"
+// Cause: indexing a plain int variable
+// ------------------------------------------------------------
 void test30() {
     int x;
     int y;
     y = x[0];
 }
 
---- Error 31: "the index is not convertible to int" ---
+
+// ------------------------------------------------------------
+// AT TEST 31 — "the index is not convertible to int"
+// Cause: using struct S a as index (TB_STRUCT not convertible to TB_INT)
+// ------------------------------------------------------------
 void test31() {
     int x;
     x = v[a];
 }
 
---- Error 32: "a function can only be called" ---
+
+// ------------------------------------------------------------
+// AT TEST 32 — "a function can only be called"
+// Cause: using function name f as a value without ()
+// ------------------------------------------------------------
 void test32() {
     int x;
     x = f + 1;
 }
 
---- Error 33: "too few arguments in function call" ---
+
+// ------------------------------------------------------------
+// AT TEST 33 — "too few arguments in function call"
+// Cause: f expects 3 params, only 2 given
+// ------------------------------------------------------------
 void test33() {
     f(v[0].text, 0);
 }
 
---- Error 34: "in call, cannot convert the argument type to the parameter type" ---
+
+// ------------------------------------------------------------
+// AT TEST 34 — "in call, cannot convert the argument type to the parameter type"
+// Cause: f expects int for 2nd param, struct S a given
+// ------------------------------------------------------------
 void test34() {
     f(v[0].text, a, '#');
 }
 
---- Error 35: "too many arguments in function call" ---
+
+// ------------------------------------------------------------
+// AT TEST 35 — "too many arguments in function call"
+// Cause: f expects 3 params, 4 given
+// ------------------------------------------------------------
 void test35() {
     f(v[0].text, 0, '#', 1);
 }
 
---- Error 36: "only a function can be called" ---
+
+// ------------------------------------------------------------
+// AT TEST 36 — "only a function can be called"
+// Cause: calling a plain int variable as a function
+// ------------------------------------------------------------
 void test36() {
     int x;
     int y;
     y = x();
 }
 
---- Error 37: "undefined id: %s" ---
+
+// ------------------------------------------------------------
+// AT TEST 37 — "undefined id: xyz"
+// Cause: variable xyz was never declared
+// ------------------------------------------------------------
 void test37() {
     int x;
     x = xyz;
