@@ -202,7 +202,6 @@ bool exprPrimary(Ret *r)
 	
 	if (consume(ID))
 	{
-		// Căutăm ID-ul în tabela de simboluri
 		Symbol *s = findSymbol(consumedTk->text);
 		if (!s) tkerr("undefined id: %s", consumedTk->text);
 
@@ -217,6 +216,10 @@ bool exprPrimary(Ret *r)
 			{
 				if (!param) tkerr("too many arguments in function call");
 				if (!convTo(&rArg.type, &param->type)) tkerr("in call, cannot convert the argument type to the parameter type");
+
+				addRVal(&owner->fn.instr,rArg.lval,&rArg.type);
+				insertConvIfNeeded(lastInstr(owner->fn.instr),&rArg.type,&param->type);
+
 				param = param->next;
 
 				while (consume(COMMA))
@@ -228,6 +231,10 @@ bool exprPrimary(Ret *r)
 					
 					if (!param) tkerr("too many arguments in function call");
 					if (!convTo(&rArg.type, &param->type)) tkerr("in call, cannot convert the argument type to the parameter type");
+
+					addRVal(&owner->fn.instr, rArg.lval, &rArg.type);
+					insertConvIfNeeded(lastInstr(owner->fn.instr), &rArg.type, &param->type);
+
 					param = param->next;
 				}
 			}
@@ -235,6 +242,16 @@ bool exprPrimary(Ret *r)
 			if (consume(RPAR))
 			{
 				if (param) tkerr("too few arguments in function call");
+
+				if (s->fn.extFnPtr)
+				{
+					addInstr(&owner->fn.instr, OP_CALL_EXT)->arg.extFnPtr = s->fn.extFnPtr;
+				}
+				else
+				{
+					addInstr(&owner->fn.instr, OP_CALL)->arg.instr = s->fn.instr;
+				}
+				
 				*r = (Ret){s->type, false, true};
 				return true;
 			}
@@ -245,6 +262,32 @@ bool exprPrimary(Ret *r)
 		}
 
 		if (s->kind == SK_FN) tkerr("a function can only be called");
+
+		if (s->kind == SK_VAR)
+		{
+			if (s->owner == NULL)
+			{
+				addInstr(&owner->fn.instr, OP_ADDR)->arg.p = s->varMem;
+			}
+			else
+			{
+				switch (s->type.tb)
+				{
+					case TB_INT:    addInstrWithInt(&owner->fn.instr, OP_FPADDR_I, s->varIdx + 1); break;
+					case TB_DOUBLE: addInstrWithInt(&owner->fn.instr, OP_FPADDR_F, s->varIdx + 1); break;
+				}
+			}
+		}
+
+		if (s->kind == SK_PARAM)
+		{
+			switch (s->type.tb)
+			{
+				case TB_INT:    addInstrWithInt(&owner->fn.instr, OP_FPADDR_I, s->paramIdx - symbolsLen(s->owner->fn.params) - 1); break;
+				case TB_DOUBLE: addInstrWithInt(&owner->fn.instr, OP_FPADDR_F, s->paramIdx - symbolsLen(s->owner->fn.params) - 1); break;
+			}
+		}
+
 		*r = (Ret){s->type, true, s->type.n >= 0};
 
 		return true;
@@ -267,12 +310,14 @@ bool exprPrimary(Ret *r)
 
 	if (consume(INT))
 	{
+		addInstrWithInt(&owner->fn.instr, OP_PUSH_I, consumedTk->i);
 		*r = (Ret){{TB_INT, NULL, -1}, false, true};
 		return true;
 	}
 
 	if (consume(DOUBLE))
 	{
+		addInstrWithDouble(&owner->fn.instr, OP_PUSH_F, consumedTk->d);
 		*r = (Ret){{TB_DOUBLE, NULL, -1}, false, true};
 		return true;
 	}
@@ -447,14 +492,28 @@ bool exprCast(Ret *r)
 // exprMulPrim: ( MUL | DIV ) exprCast exprMulPrim | epsilon
 bool exprMulPrim(Ret *r)
 {
+	Token *op;
+
 	if (consume(MUL))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprCast(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for *");
-			*r = (Ret){tDst, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+			switch (tDst.tb)
+			{
+				case TB_INT:	addInstr(&owner->fn.instr, OP_MUL_I); break;
+				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_MUL_F); break;
+			}
+			// *r = (Ret){tDst, false, true};
 
 			if (exprMulPrim(r))
 			{
@@ -468,12 +527,26 @@ bool exprMulPrim(Ret *r)
 	}
 	else if (consume(DIV))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprCast(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for /");
-			*r = (Ret){tDst, false, true};
+
+			addRVal(&owner->fn.instr,right.lval,&right.type);
+			insertConvIfNeeded(lastLeft,&r->type,&tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr),&right.type,&tDst);
+			
+			switch (tDst.tb)
+			{
+				case TB_INT:	addInstr(&owner->fn.instr, OP_DIV_I); break;
+				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_DIV_F); break;
+			}
+
+			// *r = (Ret){tDst, false, true};
 
 			if (exprMulPrim(r))
 			{
@@ -508,14 +581,29 @@ bool exprMul(Ret *r)
 // exprAddPrim: ( ADD | SUB ) exprMul exprAddPrim | epsilon
 bool exprAddPrim(Ret *r)
 {
+	Token *op;
+
 	if (consume(ADD))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprMul(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for +");
-			*r = (Ret){tDst, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+			switch (tDst.tb)
+			{
+				case TB_INT:    addInstr(&owner->fn.instr, OP_ADD_I); break;
+				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_ADD_F); break;
+			}
+
+			// *r = (Ret){tDst, false, true};
 
 			if (exprAddPrim(r))
 			{
@@ -529,12 +617,25 @@ bool exprAddPrim(Ret *r)
 	}
 	else if (consume(SUB))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprMul(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for -");
-			*r = (Ret){tDst, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+			switch (tDst.tb)
+			{
+				case TB_INT:	addInstr(&owner->fn.instr, OP_SUB_I); break;
+				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_SUB_F); break;
+			}
+
+			// *r = (Ret){tDst, false, true};
 
 			if (exprAddPrim(r))
 			{
@@ -569,14 +670,30 @@ bool exprAdd(Ret *r)
 // exprRelPrim: ( LESS | LESSEQ | GREATER | GREATEREQ ) exprAdd exprRelPrim | epsilon
 bool exprRelPrim(Ret *r)
 {
+	Token *op;
+
 	if (consume(LESS))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprAdd(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for <");
-			*r = (Ret){{TB_INT, NULL, -1}, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+
+			switch (tDst.tb)
+			{
+				case TB_INT:    addInstr(&owner->fn.instr, OP_LESS_I); break;
+				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_LESS_F); break;
+			}
+			
+			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -590,12 +707,20 @@ bool exprRelPrim(Ret *r)
 	}
 	else if (consume(LESSEQ))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprAdd(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for <=");
-			*r = (Ret){{TB_INT, NULL, -1}, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+
+			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -609,12 +734,20 @@ bool exprRelPrim(Ret *r)
 	}
 	else if (consume(GREATER))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprAdd(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for >");
-			*r = (Ret){{TB_INT, NULL, -1}, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+
+			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -628,12 +761,20 @@ bool exprRelPrim(Ret *r)
 	}
 	else if (consume(GREATEREQ))
 	{
+		Instr *lastLeft = lastInstr(owner->fn.instr);
+		addRVal(&owner->fn.instr, r->lval, &r->type);
+
 		Ret right;
 		if (exprAdd(&right))
 		{
 			Type tDst;
 			if (!arithTypeTo(&r->type, &right.type, &tDst)) tkerr("invalid operand type for >=");
-			*r = (Ret){{TB_INT, NULL, -1}, false, true};
+
+			addRVal(&owner->fn.instr, right.lval, &right.type);
+			insertConvIfNeeded(lastLeft, &r->type, &tDst);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
+
+			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -820,6 +961,14 @@ bool exprAssign(Ret *r)
 		{
 			if (exprAssign(r))
 			{
+				addRVal(&owner->fn.instr, r->lval, &r->type);
+				insertConvIfNeeded(lastInstr(owner->fn.instr), &r->type, &rDst.type);
+				switch (rDst.type.tb)
+				{
+					case TB_INT:    addInstr(&owner->fn.instr, OP_STORE_I); break;
+					case TB_DOUBLE: addInstr(&owner->fn.instr, OP_STORE_F); break;
+				}
+
 				if (!rDst.lval)					   tkerr("the assign destination must be a left-value");
 				if (rDst.ct)					   tkerr("the assign destination cannot be constant");
 				if (!canBeScalar(&rDst))		   tkerr("the assign destination must be scalar");
@@ -908,14 +1057,28 @@ bool stm()
 
 				if (consume(RPAR))
 				{
+					addRVal(&owner->fn.instr, rCond.lval, &rCond.type);
+					Type intType = {TB_INT, NULL, -1};
+					insertConvIfNeeded(lastInstr(owner->fn.instr), &rCond.type, &intType);
+					Instr *ifJF = addInstr(&owner->fn.instr, OP_JF);
+
 					if (stm())
 					{
 						if (consume(ELSE))
 						{
+							Instr *ifJMP = addInstr(&owner->fn.instr, OP_JMP);
+                            ifJF->arg.instr = addInstr(&owner->fn.instr, OP_NOP);
+
 							if (!stm())
 							{
 								tkerr("syntax error in 'else' statement");
 							}
+
+							ifJMP->arg.instr = addInstr(&owner->fn.instr, OP_NOP);
+						}
+						else
+						{
+							ifJF->arg.instr = addInstr(&owner->fn.instr, OP_NOP);
 						}
 
 						return true;
@@ -943,6 +1106,7 @@ bool stm()
 
 	if (consume(WHILE))
 	{
+		Instr *beforeWhileCond = lastInstr(owner->fn.instr);
 		if (consume(LPAR))
 		{
 			if (expr(&rCond))
@@ -951,8 +1115,16 @@ bool stm()
 
 				if (consume(RPAR))
 				{
+					addRVal(&owner->fn.instr, rCond.lval, &rCond.type);
+					Type intType = {TB_INT, NULL, -1};
+					insertConvIfNeeded(lastInstr(owner->fn.instr), &rCond.type, &intType);
+					Instr *whileJF = addInstr(&owner->fn.instr, OP_JF);
+
 					if (stm())
 					{
+						addInstr(&owner->fn.instr, OP_JMP)->arg.instr = beforeWhileCond->next;
+						whileJF->arg.instr = addInstr(&owner->fn.instr, OP_NOP);
+
 						return true;
 					}
 					else
@@ -980,12 +1152,18 @@ bool stm()
 	{
 		if (expr(&rExpr)) 
 		{
+			addRVal(&owner->fn.instr, rExpr.lval, &rExpr.type);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &rExpr.type, &owner->type);
+			addInstrWithInt(&owner->fn.instr, OP_RET, symbolsLen(owner->fn.params));
+
 			if (owner->type.tb == TB_VOID) 		    tkerr("a void function cannot return a value");
 			if (!canBeScalar(&rExpr)) 			    tkerr("the return value must be a scalar value");
 			if (!convTo(&rExpr.type, &owner->type)) tkerr("cannot convert the return expression type to the function return type");
 		}
 		else
 		{
+			addInstr(&owner->fn.instr, OP_RET_VOID);
+
 			if(owner->type.tb != TB_VOID) tkerr("a non-void function must return a value");
 		}
 		
@@ -1001,6 +1179,8 @@ bool stm()
 
 	if (expr(&rExpr))
 	{
+		if (rExpr.type.tb != TB_VOID) addInstr(&owner->fn.instr, OP_DROP);
+
 		if (consume(SEMICOLON))
 		{
 			return true;
@@ -1109,9 +1289,13 @@ bool fnDef()
                 }
                 if (consume(RPAR))
                 {
+					addInstr(&fn->fn.instr, OP_ENTER);
                     if (stmCompound(false))
                     {
-                        dropDomain();
+						fn->fn.instr->arg.i = symbolsLen(fn->fn.locals);
+						if(fn->type.tb == TB_VOID)
+							addInstrWithInt(&fn->fn.instr, OP_RET_VOID, symbolsLen(fn->fn.params));
+                        // dropDomain();
                         owner = NULL;
                         return true;
                     }
