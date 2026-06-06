@@ -1,0 +1,41 @@
+I.  Codul initial (C)
+
+f(2.0);
+void f(double n){
+    double i=0.0;
+    while(i<n){
+        put_d(i);
+        i=i+0.5;
+    }
+}
+
+II. Cadrul functiei
+
+-2       -1         0       1
+ n    adr_return  old_FP    i
+
+III. Functia translatata (ASM)
+
+     PUSH.f 2.0       <- pune argumentul n=2.0 pe stiva
+     CALL f           <- push adr(HALT), sari la ENTER
+     HALT             <- executia se opreste dupa return
+
+f:   ENTER 1          <- slot pentru i
+     PUSH.f 0.0       <- valoarea initiala pentru i
+     FPSTORE.f 1      <- FP[1] = 0.0 (i=0.0)
+
+F1:  FPLOAD.f 1       <- push i (pentru comparatie)
+     FPLOAD.f -2      <- push n (pentru comparatie)
+     LESS.f           <- i < n -> int 0 sau 1
+     JF F2            <- daca 0 (fals), sari la F2
+
+     FPLOAD.f 1       <- push i (argument pentru put_d)
+     CALL_EXT put_d   <- afiseaza i, pops double
+
+     FPLOAD.f 1       <- push i (pentru adunare)
+     PUSH.f 0.5       <- push 0.5
+     ADD.f            <- i + 0.5
+     FPSTORE.f 1      <- FP[1] = i+0.5 (i=i+0.5)
+     JMP F1           <- inapoi la conditia while
+
+F2:  RET_VOID 1       <- 1 parametru (n)

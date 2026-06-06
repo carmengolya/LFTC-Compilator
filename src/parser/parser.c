@@ -199,6 +199,7 @@ bool arrayDecl(Type *t)
 bool exprPrimary(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 	
 	if (consume(ID))
 	{
@@ -335,6 +336,7 @@ bool exprPrimary(Ret *r)
 	}
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -398,7 +400,8 @@ bool exprPostfixPrim(Ret *r)
 
 bool exprPostfix(Ret *r)
 {
-	Token *start = iTk; 
+	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 
 	if (exprPrimary(r))
 	{
@@ -409,6 +412,7 @@ bool exprPostfix(Ret *r)
 	}
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -416,6 +420,8 @@ bool exprPostfix(Ret *r)
 bool exprUnary(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
+
 	if (consume(NOT) || consume(SUB))
 	{
 		if (exprUnary(r))
@@ -433,6 +439,7 @@ bool exprUnary(Ret *r)
 	}
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 
 	if (exprPostfix(r))
 	{
@@ -447,6 +454,7 @@ bool exprUnary(Ret *r)
 bool exprCast(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 
 	if (consume(LPAR))
 	{
@@ -480,6 +488,7 @@ bool exprCast(Ret *r)
 	}
 	
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 
 	if(exprUnary(r))
 	{
@@ -513,7 +522,7 @@ bool exprMulPrim(Ret *r)
 				case TB_INT:	addInstr(&owner->fn.instr, OP_MUL_I); break;
 				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_MUL_F); break;
 			}
-			// *r = (Ret){tDst, false, true};
+			*r = (Ret){tDst, false, true};
 
 			if (exprMulPrim(r))
 			{
@@ -546,7 +555,7 @@ bool exprMulPrim(Ret *r)
 				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_DIV_F); break;
 			}
 
-			// *r = (Ret){tDst, false, true};
+			*r = (Ret){tDst, false, true};
 
 			if (exprMulPrim(r))
 			{
@@ -565,6 +574,7 @@ bool exprMulPrim(Ret *r)
 bool exprMul(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 
 	if (exprCast(r))
 	{
@@ -575,6 +585,7 @@ bool exprMul(Ret *r)
 	}	
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -603,7 +614,7 @@ bool exprAddPrim(Ret *r)
 				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_ADD_F); break;
 			}
 
-			// *r = (Ret){tDst, false, true};
+			*r = (Ret){tDst, false, true};
 
 			if (exprAddPrim(r))
 			{
@@ -635,7 +646,7 @@ bool exprAddPrim(Ret *r)
 				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_SUB_F); break;
 			}
 
-			// *r = (Ret){tDst, false, true};
+			*r = (Ret){tDst, false, true};
 
 			if (exprAddPrim(r))
 			{
@@ -654,7 +665,7 @@ bool exprAddPrim(Ret *r)
 bool exprAdd(Ret *r)
 {
 	Token *start = iTk;
-
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 	if (exprMul(r))
 	{
 		if (exprAddPrim(r))
@@ -664,6 +675,7 @@ bool exprAdd(Ret *r)
 	}	
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -693,7 +705,7 @@ bool exprRelPrim(Ret *r)
 				case TB_DOUBLE: addInstr(&owner->fn.instr, OP_LESS_F); break;
 			}
 			
-			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
+			*r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -720,7 +732,7 @@ bool exprRelPrim(Ret *r)
 			insertConvIfNeeded(lastLeft, &r->type, &tDst);
 			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
 
-			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
+			*r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -747,7 +759,7 @@ bool exprRelPrim(Ret *r)
 			insertConvIfNeeded(lastLeft, &r->type, &tDst);
 			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
 
-			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
+			*r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -774,7 +786,7 @@ bool exprRelPrim(Ret *r)
 			insertConvIfNeeded(lastLeft, &r->type, &tDst);
 			insertConvIfNeeded(lastInstr(owner->fn.instr), &right.type, &tDst);
 
-			// *r = (Ret){{TB_INT, NULL, -1}, false, true};
+			*r = (Ret){{TB_INT, NULL, -1}, false, true};
 
 			if (exprRelPrim(r))
 			{
@@ -793,6 +805,7 @@ bool exprRelPrim(Ret *r)
 bool exprRel(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 
 	if (exprAdd(r))
 	{
@@ -803,6 +816,7 @@ bool exprRel(Ret *r)
 	}
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -854,6 +868,7 @@ bool exprEqPrim(Ret *r)
 bool exprEq(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 
 	if (exprRel(r))
 	{
@@ -864,6 +879,7 @@ bool exprEq(Ret *r)
 	}
 	
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -895,6 +911,7 @@ bool exprAndPrim(Ret *r)
 bool exprAnd(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 
 	if (exprEq(r))
 	{
@@ -905,6 +922,7 @@ bool exprAnd(Ret *r)
 	}
 	
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -936,7 +954,7 @@ bool exprOrPrim(Ret *r)
 bool exprOr(Ret *r)
 {
 	Token *start = iTk;
-
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 	if (exprAnd(r))
 	{
 		if (exprOrPrim(r))
@@ -946,6 +964,7 @@ bool exprOr(Ret *r)
 	}
 	
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 	return false;
 }
 
@@ -953,6 +972,7 @@ bool exprOr(Ret *r)
 bool exprAssign(Ret *r)
 {
 	Token *start = iTk;
+	Instr *startInstr = owner ? lastInstr(owner->fn.instr) : NULL;
 	Ret rDst;
 
 	if (exprUnary(&rDst))
@@ -961,6 +981,14 @@ bool exprAssign(Ret *r)
 		{
 			if (exprAssign(r))
 			{
+				if (!rDst.lval)					   tkerr("the assign destination must be a left-value");
+				if (rDst.ct)					   tkerr("the assign destination cannot be constant");
+				if (!canBeScalar(&rDst))		   tkerr("the assign destination must be scalar");
+				if (!canBeScalar(r)) 			   tkerr("the assign source must be scalar");
+				if (!convTo(&r->type, &rDst.type)) tkerr("the assign source cannot be converted to destination");
+				r->lval = false;
+				r->ct = true;
+
 				addRVal(&owner->fn.instr, r->lval, &r->type);
 				insertConvIfNeeded(lastInstr(owner->fn.instr), &r->type, &rDst.type);
 				switch (rDst.type.tb)
@@ -969,13 +997,6 @@ bool exprAssign(Ret *r)
 					case TB_DOUBLE: addInstr(&owner->fn.instr, OP_STORE_F); break;
 				}
 
-				if (!rDst.lval)					   tkerr("the assign destination must be a left-value");
-				if (rDst.ct)					   tkerr("the assign destination cannot be constant");
-				if (!canBeScalar(&rDst))		   tkerr("the assign destination must be scalar");
-				if (!canBeScalar(r)) 			   tkerr("the assign source must be scalar");
-				if (!convTo(&r->type, &rDst.type)) tkerr("the assign source cannot be converted to destination");
-				r->lval = false;
-				r->ct = true;
 				return true;
 			}
 			else
@@ -986,6 +1007,7 @@ bool exprAssign(Ret *r)
 	}
 
 	iTk = start;
+	if (owner) delInstrAfter(startInstr);
 
 	if (exprOr(r))
 	{
@@ -1152,19 +1174,19 @@ bool stm()
 	{
 		if (expr(&rExpr)) 
 		{
-			addRVal(&owner->fn.instr, rExpr.lval, &rExpr.type);
-			insertConvIfNeeded(lastInstr(owner->fn.instr), &rExpr.type, &owner->type);
-			addInstrWithInt(&owner->fn.instr, OP_RET, symbolsLen(owner->fn.params));
-
 			if (owner->type.tb == TB_VOID) 		    tkerr("a void function cannot return a value");
 			if (!canBeScalar(&rExpr)) 			    tkerr("the return value must be a scalar value");
 			if (!convTo(&rExpr.type, &owner->type)) tkerr("cannot convert the return expression type to the function return type");
+
+			addRVal(&owner->fn.instr, rExpr.lval, &rExpr.type);
+			insertConvIfNeeded(lastInstr(owner->fn.instr), &rExpr.type, &owner->type);
+			addInstrWithInt(&owner->fn.instr, OP_RET, symbolsLen(owner->fn.params));
 		}
 		else
 		{
-			addInstr(&owner->fn.instr, OP_RET_VOID);
-
 			if(owner->type.tb != TB_VOID) tkerr("a non-void function must return a value");
+
+			addInstr(&owner->fn.instr, OP_RET_VOID);
 		}
 		
 		if (consume(SEMICOLON))
@@ -1295,7 +1317,7 @@ bool fnDef()
 						fn->fn.instr->arg.i = symbolsLen(fn->fn.locals);
 						if(fn->type.tb == TB_VOID)
 							addInstrWithInt(&fn->fn.instr, OP_RET_VOID, symbolsLen(fn->fn.params));
-                        // dropDomain();
+                        dropDomain();
                         owner = NULL;
                         return true;
                     }
