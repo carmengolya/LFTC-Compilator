@@ -61,7 +61,7 @@ n este parametru int, accesat la FP[-2].
 
 b. functia main:
    -1         0       1       2
-adr_return  old_FP   r       i
+adr_return  old_FP    r       i
 
 main are 2 variabile locale (r si i), deci ENTER 2.
 main nu are parametri.
